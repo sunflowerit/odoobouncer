@@ -1,0 +1,6 @@
+.direnv
+.envrc
+*.pyc
+*.swp
+*.swo
+.venv

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-CMD=nginx-ldap-auth-daemon.py
+CMD=nginx-odoo.py
 
 if [ ! -f "$CMD" ]; then
     echo "Please run '$0' from the same directory where '$CMD' file resides"
