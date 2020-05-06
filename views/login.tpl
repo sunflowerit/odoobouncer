@@ -10,7 +10,7 @@
     <div class="login">
       <div class="heading">
         <h2>Sign in</h2>
-        <form action="/login" method="post">
+        <form method="post">
 
           <div class="input-group input-group-lg">
             <span class="input-group-addon"><i class="fa fa-user"></i></span>

@@ -14,45 +14,18 @@ import pyotp
 import signal
 import threading
 
-from bottle import request, route, run, static_file, template
+from bottle import redirect, request, route, run, static_file, template
 from urllib.parse import urlparse
+
+from lib.db import DB
 
 
 HOTP_SECRET = os.environ.get('FFHOTP_SECRET')
 assert(len(HOTP_SECRET) == 16)
 
 user_config_dir = os.path.expanduser("~") + "/.config/nginx-odoo"
-user_config = user_config_dir + "/nginx-odoo.ini"
-
-
-# Load and increase HOTP counter
-def update_hotp_counter():
-    config_ok = False
-    counter = 0
-    if os.path.isfile(user_config):
-        try:
-            config = configparser.ConfigParser()
-            config.read(user_config)
-            counter = int(config['hotp']['counter'])
-            config_ok = True
-            # TODO: assert file permissions 600
-        except Exception:
-            pass
-
-    if not config_ok:
-        os.makedirs(user_config_dir, exist_ok=True)
-        config = configparser.ConfigParser()
-        config.add_section('hotp')
-        config['hotp']['counter'] = str(counter)
-        with open(user_config, 'w') as f:
-            config.write(f)
-            # TODO: set file permissions 600
-
-    counter += 1
-    config['hotp']['counter'] = str(counter)
-    with open(user_config, 'w') as f:
-        config.write(f)
-    return counter
+db_path = user_config_dir + "/database.db"
+db = DB(db_path)  # TODO: assert file permissions 600
 
 
 class OdooAuthHandler():
@@ -73,20 +46,11 @@ class OdooAuthHandler():
         try:
             odoo = odoorpc.ODOO(host, port=port, protocol='jsonrpc')
             odoo.login(database, username, password)
-
-            hotp = pyotp.HOTP(HOTP_SECRET)
-            counter = update_hotp_counter()
-            key = hotp.at(counter)
-            print('sending out {}: {}'.format(key, counter))
-
-            # TODO: store the numbers somewhere safe, with an expiration date
-
-            # TODO: verify
-            #hotp.verify('316439', 1401) # => True
-            #hotp.verify('316439', 1402) # => False
-
             # TODO: check user object for the 'portal flag'
-            # TODO: proceed to second factor auth: send out code
+            return True
+
+            # TODO: is_expired function for counter
+
             # TODO: now return odoo session id cookie to NGINX
             #       and have our own JWT mechanism for allowing this device from now on
             #       (maybe through oauthlib after all)
@@ -101,23 +65,52 @@ def css(filepath):
     return static_file(filepath, root="static")
 
 
-# Main page: login form
+# Login page
 @route('/')
-def login():
+def login_page():
+    # TODO: verify session cookie and if yes, return hurray code to nginx
+    # TODO: extra protection eg. by IP or browser signature
     return template('login')
 
 
-# Main page posts to /login
-@route('/login', method='POST')
-def do_login():
+# Handle login
+@route('/', method='POST')
+def do_verify():
+    # check if this is first login
     username = request.forms.get('username')
     password = request.forms.get('password')
-    handler = OdooAuthHandler()
-    if handler.check_login(username, password):
-        return "<p>Your login information was correct.</p>"
-    else:
-        return bottle.HTTPResponse(
-            status=401, body="<p>Login failed.</p>")
+    if username and password:
+        handler = OdooAuthHandler()
+        if handler.check_login(username, password):
+            hotp = pyotp.HOTP(HOTP_SECRET)
+            counter, code = db.next_hotp_id()
+            key = hotp.at(counter)
+            print('sending out {}: {}'.format(key, counter))
+            print('requiring code: {}'.format(code))
+            # TODO: send out hotp code by mail
+            # TODO: keep a logfile about sent mails
+            return template('hotp', counter=counter, code=code)
+        else:
+            # TODO: show failed password message
+            # TODO: brute force protection
+            return redirect('/')
+            # TODO: do we return 401 here for nginx?
+            # return bottle.HTTPResponse(
+            #     status=401, body="<p>Login failed.</p>")
+
+    # check HOTP
+    counter = request.forms.get('counter')
+    code = request.forms.get('code')
+    hotp_code = request.forms.get('hotp_code')
+    if code and counter and hotp_code:
+        hotp = pyotp.HOTP(HOTP_SECRET)
+        if hotp.verify(hotp_code, int(counter)) and \
+                db.verify_code(counter, code):
+            return bottle.HTTPResponse(
+                status=200, body="<p>Login successful.</p>")
+        else:
+            return bottle.HTTPResponse(
+                status=401, body="<p>Login failed.</p>")
 
 
 if __name__ == '__main__':
@@ -142,9 +135,6 @@ if __name__ == '__main__':
 
     # Parse arguments
     args = parser.parse_args()
-
-    # Increase the HOTP counter
-    update_hotp_counter()
 
     # Discover more about the Odoo instance
     url = urlparse(args.url)
