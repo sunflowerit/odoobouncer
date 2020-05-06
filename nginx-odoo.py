@@ -15,6 +15,7 @@ import signal
 import threading
 
 from bottle import redirect, request, route, run, static_file, template
+from pathlib import Path
 from urllib.parse import urlparse
 
 from lib.db import DB
@@ -22,11 +23,13 @@ from lib.db import DB
 # TODO: should this be in __main__ ?
 # load and check HOTP secret
 HOTP_SECRET = os.environ.get('FFHOTP_SECRET')
-if len(HOTP_SECRET) != 16:
+if not HOTP_SECRET or len(HOTP_SECRET) != 16:
     sys.exit('HOTP secret in .envrc must be 16 characters')
 
 # open database
+user_home_dir = os.path.expanduser("~")
 user_config_dir = os.path.expanduser("~") + "/.config/nginx-odoo"
+Path(user_config_dir).mkdir(parents=True, exist_ok=True)
 db_path = user_config_dir + "/database.db"
 db = DB(db_path)
 db_perm = os.stat(db_path).st_mode & 0o777
@@ -138,9 +141,9 @@ if __name__ == '__main__':
     group = parser.add_argument_group(title="Odoo options")
     group.add_argument('-u', '--url', metavar="URL",
         default="http://localhost:8069",
-        help=("Odoo URI to query (Default: http://localhost:8169)"))
+        help=("Odoo URI to query (Default: http://localhost:8069)"))
     group.add_argument('-d', '--database', metavar="URL",
-        default="freshfilter_demo",
+        required=True,
         help=("Odoo database to query (Default: freshfilter_demo)"))
 
     # Parse arguments
