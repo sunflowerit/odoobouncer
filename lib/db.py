@@ -30,18 +30,35 @@ class DB(object):
         con.close()
         return id, code
 
-    def verify_code(self, counter, code):
+    def verify_code_and_expiry(self, counter, code):
         # Verify random code provided by form
         con = self.connect()
         cur = con.cursor()
         cur.execute('''
-            select exists(select 1 from hotp_codes
-            where id = ? and code = ?)
+            select id from hotp_codes
+            where id = ? and code = ? and expiry > datetime('now')
         ''', (counter, code,))
-        if cur.fetchone():
-            return True
+        row = cur.fetchone()
+        if row:
+            cur.execute('''
+                delete from hotp_codes where id = ?
+            ''', (row[0],))
+            con.commit()
+            res = True
         else:
-            return False
+            res = False
+        con.close()
+        return res
+
+    def cleanup(self):
+        # Cleanup: clear expired tokens, etc
+        con = self.connect()
+        cur = con.cursor()
+        cur.execute('''
+            delete from hotp_codes where expiry < datetime('now')
+        ''')
+        con.commit()
+        con.close()
 
     def create_tables(self):
         con = self.connect()

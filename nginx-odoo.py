@@ -19,13 +19,21 @@ from urllib.parse import urlparse
 
 from lib.db import DB
 
-
+# TODO: should this be in __main__ ?
+# load and check HOTP secret
 HOTP_SECRET = os.environ.get('FFHOTP_SECRET')
-assert(len(HOTP_SECRET) == 16)
+if len(HOTP_SECRET) != 16:
+    sys.exit('HOTP secret in .envrc must be 16 characters')
 
+# open database
 user_config_dir = os.path.expanduser("~") + "/.config/nginx-odoo"
 db_path = user_config_dir + "/database.db"
-db = DB(db_path)  # TODO: assert file permissions 600
+db = DB(db_path)
+db_perm = os.stat(db_path).st_mode & 0o777
+if db_perm != 0o600:
+    sys.exit('File permissions of {} must be 600 but are: {:o}'.format(
+        db_path, db_perm))
+db.cleanup()
 
 
 class OdooAuthHandler():
@@ -76,6 +84,7 @@ def login_page():
 # Handle login
 @route('/', method='POST')
 def do_verify():
+    # TODO: CSRF protection
     # check if this is first login
     username = request.forms.get('username')
     password = request.forms.get('password')
@@ -93,10 +102,9 @@ def do_verify():
         else:
             # TODO: show failed password message
             # TODO: brute force protection
-            return redirect('/')
-            # TODO: do we return 401 here for nginx?
-            # return bottle.HTTPResponse(
-            #     status=401, body="<p>Login failed.</p>")
+            # TODO: will this work for auth_request nginx?
+            return bottle.HTTPResponse(
+                status=401, body="<p>Login failed.</p>")
 
     # check HOTP
     counter = request.forms.get('counter')
@@ -105,12 +113,14 @@ def do_verify():
     if code and counter and hotp_code:
         hotp = pyotp.HOTP(HOTP_SECRET)
         if hotp.verify(hotp_code, int(counter)) and \
-                db.verify_code(counter, code):
+                db.verify_code_and_expiry(counter, code):
             return bottle.HTTPResponse(
                 status=200, body="<p>Login successful.</p>")
         else:
             return bottle.HTTPResponse(
                 status=401, body="<p>Login failed.</p>")
+
+    return redirect('/')
 
 
 if __name__ == '__main__':
@@ -142,7 +152,11 @@ if __name__ == '__main__':
     odoo_port = url.port
     odoo_host = url.hostname
     odoo_database = args.database
-    odoo = odoorpc.ODOO(odoo_host, port=odoo_port)
+
+    try:
+        odoo = odoorpc.ODOO(odoo_host, port=odoo_port)
+    except Exception:
+        sys.exit('Odoo not running at {}'.format(args.url))
 
     auth_params = {
         'host': odoo_host,
