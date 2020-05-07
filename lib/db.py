@@ -59,7 +59,7 @@ class DB(object):
         cur = con.cursor()
         cur.execute('''
             insert into odoo_sessions (session_id, expiry)
-            select ?, datetime(datetime(), '+15 minutes')
+            select ?, datetime(datetime(), '+16 hours')
         ''', (session,))
         _id = cur.lastrowid
         cur.execute('''

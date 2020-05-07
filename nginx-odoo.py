@@ -125,8 +125,9 @@ def login_page():
 
 def send_mail(username, code):
     # TODO: send to email address of user
-    _to = SMTP_TO
-    if not _to:
+    if username == 'admin' and SMTP_TO:
+        _to = SMTP_TO
+    else:
         _to = username
     if not _to:
         return False
