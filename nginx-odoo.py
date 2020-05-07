@@ -16,6 +16,7 @@ import configparser
 import odoorpc
 import os
 import pyotp
+import re
 import smtplib
 import signal
 import threading
@@ -29,6 +30,9 @@ from urllib.parse import urlparse
 from lib.db import DB
 
 # TODO: should this be in __main__ ?
+
+email_regex = re.compile(
+    r"^[A-Za-z0-9\.\+_-]+@[A-Za-z0-9\._-]+\.[a-zA-Z]*$")
 
 # load and check HOTP secret
 HOTP_SECRET = os.environ.get('FFHOTP_SECRET')
@@ -95,6 +99,14 @@ def css(filepath):
     return static_file(filepath, root="static")
 
 
+# Session logout
+@route('/logout')
+def logout_session():
+    session = request.get_cookie('session_id')
+    db.remove_session(session)
+    return redirect('/')
+
+
 # Session verification
 @route('/auth')
 def verify_session():
@@ -111,10 +123,16 @@ def login_page():
     return template('login')
 
 
-def send_mail(code):
+def send_mail(username, code):
     # TODO: send to email address of user
     _to = SMTP_TO
+    if not _to:
+        _to = username
+    if not _to:
+        return False
     _to_list = _to.split(',')
+    if not all(email_regex.match(t) for t in _to_list):
+        return False
     msg = MIMEText("Freshfilter security code: {}".format(code))
     msg['Subject'] = "Freshfilter security code: {}".format(code)
     msg['From'] = SMTP_FROM
@@ -122,13 +140,15 @@ def send_mail(code):
     s = smtplib.SMTP(SMTP_SERVER)
     s.sendmail(SMTP_FROM, _to_list, msg.as_string())
     s.quit()
+    return True
 
 
 # Handle login
 @route('/', method='POST')
 def do_verify():
+
+    # handle username/password
     # TODO: CSRF protection
-    # check if this is first login
     username = request.forms.get('username')
     password = request.forms.get('password')
     if username and password:
@@ -138,13 +158,16 @@ def do_verify():
             hotp = pyotp.HOTP(HOTP_SECRET)
             counter, code = db.next_hotp_id(session_id)
             key = hotp.at(counter)
-            print('sending out {}: {}'.format(key, counter))
             # TODO: keep a logfile about sent mails
-            send_mail(key)
+            if not send_mail(username, key):
+                # TODO: show failed message
+                # https://github.com/polonel/SnackBar
+                return redirect('/')
             return template('hotp', counter=counter, code=code)
         else:
             # TODO: show failed password message
             # TODO: brute force protection
+            #       (block for X minutes after X attempts)
             return redirect('/')
 
     # check HOTP
@@ -160,7 +183,7 @@ def do_verify():
             # TODO: show failed code message
             return redirect('/')
         db.save_session(session_id)
-        print('Setting session cookie: {}'.format(session_id))
+        # TODO: log('Setting session cookie: {}'.format(session_id))
         response.set_cookie("session_id", session_id, path='/')
         return redirect('/')
 

@@ -18,6 +18,16 @@ class DB(object):
         self.create_tables()
         self.load_sessions()
 
+    def remove_session(self, session):
+        self.session_cache.pop(session)
+        con = self.connect()
+        cur = con.cursor()
+        cur.execute('''
+            delete from odoo_sessions where session_id = ?
+        ''', (session,))
+        con.commit()
+        con.close()
+
     def verify_session(self, session):
         session_data = self.session_cache.get(session)
         if not session_data:
