@@ -2,7 +2,7 @@
 <html>
   <head>
     <title>Freshfilter Login</title>
-    <link type="text/css" href="/static/login.css" rel="stylesheet">
+    <link type="text/css" href="static/login.css" rel="stylesheet">
   </head>
 
   <body>
