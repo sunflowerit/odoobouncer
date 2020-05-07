@@ -1,6 +1,11 @@
 #!/bin/env python
 # Copyright 2020 Sunflower IT
 
+# TODO: for extra safety, dont let session_id be Odoo session id,
+# but make a new JWT token that includes the Odoo session id, and translate in NGINX.
+# TODO: prevent people logging out, but setting session_id again with cookie manager,
+# then coming to Odoo login screen and guessing admin password.
+
 import sys
 assert sys.version_info.major == 3, 'Requires Python 3.'
 
@@ -11,20 +16,33 @@ import configparser
 import odoorpc
 import os
 import pyotp
+import smtplib
 import signal
 import threading
 
-from bottle import redirect, request, route, run, static_file, template
+from bottle import \
+    redirect, request, response, route, run, static_file, template
+from email.mime.text import MIMEText
 from pathlib import Path
 from urllib.parse import urlparse
 
 from lib.db import DB
 
 # TODO: should this be in __main__ ?
+
 # load and check HOTP secret
 HOTP_SECRET = os.environ.get('FFHOTP_SECRET')
 if not HOTP_SECRET or len(HOTP_SECRET) != 16:
     sys.exit('HOTP secret in .envrc must be 16 characters')
+
+# load and check email settings
+SMTP_SERVER = os.environ.get('FFSMTP_SERVER')
+SMTP_FROM = os.environ.get('FFSMTP_FROM')
+SMTP_TO = os.environ.get('FFSMTP_TO')
+if not SMTP_SERVER or not SMTP_FROM:
+    sys.exit('SMTP settings not set in .envrc')
+s = smtplib.SMTP(SMTP_SERVER)
+s.close()
 
 # open database
 user_home_dir = os.path.expanduser("~")
@@ -32,6 +50,7 @@ user_config_dir = os.path.expanduser("~") + "/.config/nginx-odoo"
 Path(user_config_dir).mkdir(parents=True, exist_ok=True)
 db_path = user_config_dir + "/database.db"
 db = DB(db_path)
+os.chmod(db_path, 0o600)
 db_perm = os.stat(db_path).st_mode & 0o777
 if db_perm != 0o600:
     sys.exit('File permissions of {} must be 600 but are: {:o}'.format(
@@ -56,17 +75,17 @@ class OdooAuthHandler():
         database = self.params.get('database')
         try:
             odoo = odoorpc.ODOO(host, port=port, protocol='jsonrpc')
-            odoo.login(database, username, password)
+            data = odoo.json('/web/session/authenticate', {
+                'db': database, 'login': username, 'password': password
+            })
+            result = data.get('result')
+            session_id = result.get('session_id')
+            if not result.get('uid') or not session_id:
+                return False
             # TODO: check user object for the 'portal flag'
-            return True
-
-            # TODO: is_expired function for counter
-
-            # TODO: now return odoo session id cookie to NGINX
-            #       and have our own JWT mechanism for allowing this device from now on
-            #       (maybe through oauthlib after all)
-            return True
+            return session_id
         except odoorpc.error.RPCError:
+            # TODO: log exception
             return False
 
 
@@ -76,12 +95,33 @@ def css(filepath):
     return static_file(filepath, root="static")
 
 
+# Session verification
+@route('/auth')
+def verify_session():
+    session = request.get_cookie('session_id')
+    if db.verify_session(session):
+        return bottle.HTTPResponse(status=200)
+    return bottle.HTTPResponse(status=401)
+
+
 # Login page
 @route('/')
 def login_page():
-    # TODO: verify session cookie and if yes, return hurray code to nginx
     # TODO: extra protection eg. by IP or browser signature
     return template('login')
+
+
+def send_mail(code):
+    # TODO: send to email address of user
+    _to = SMTP_TO
+    _to_list = _to.split(',')
+    msg = MIMEText("Freshfilter security code: {}".format(code))
+    msg['Subject'] = "Freshfilter security code: {}".format(code)
+    msg['From'] = SMTP_FROM
+    msg['To'] = _to
+    s = smtplib.SMTP(SMTP_SERVER)
+    s.sendmail(SMTP_FROM, _to_list, msg.as_string())
+    s.quit()
 
 
 # Handle login
@@ -93,21 +133,19 @@ def do_verify():
     password = request.forms.get('password')
     if username and password:
         handler = OdooAuthHandler()
-        if handler.check_login(username, password):
+        session_id = handler.check_login(username, password)
+        if session_id:
             hotp = pyotp.HOTP(HOTP_SECRET)
-            counter, code = db.next_hotp_id()
+            counter, code = db.next_hotp_id(session_id)
             key = hotp.at(counter)
             print('sending out {}: {}'.format(key, counter))
-            print('requiring code: {}'.format(code))
-            # TODO: send out hotp code by mail
             # TODO: keep a logfile about sent mails
+            send_mail(key)
             return template('hotp', counter=counter, code=code)
         else:
             # TODO: show failed password message
             # TODO: brute force protection
-            # TODO: will this work for auth_request nginx?
-            return bottle.HTTPResponse(
-                status=401, body="<p>Login failed.</p>")
+            return redirect('/')
 
     # check HOTP
     counter = request.forms.get('counter')
@@ -115,13 +153,16 @@ def do_verify():
     hotp_code = request.forms.get('hotp_code')
     if code and counter and hotp_code:
         hotp = pyotp.HOTP(HOTP_SECRET)
-        if hotp.verify(hotp_code, int(counter)) and \
-                db.verify_code_and_expiry(counter, code):
-            return bottle.HTTPResponse(
-                status=200, body="<p>Login successful.</p>")
-        else:
-            return bottle.HTTPResponse(
-                status=401, body="<p>Login failed.</p>")
+        if not hotp.verify(hotp_code, int(counter)):
+            return redirect('/')
+        session_id = db.verify_code_and_expiry(counter, code)
+        if not session_id:
+            # TODO: show failed code message
+            return redirect('/')
+        db.save_session(session_id)
+        print('Setting session cookie: {}'.format(session_id))
+        response.set_cookie("session_id", session_id, path='/')
+        return redirect('/')
 
     return redirect('/')
 
@@ -160,6 +201,11 @@ if __name__ == '__main__':
         odoo = odoorpc.ODOO(odoo_host, port=odoo_port)
     except Exception:
         sys.exit('Odoo not running at {}'.format(args.url))
+
+    databases = odoo.db.list()
+    if odoo_database not in databases:
+        sys.exit('Database {} not present at {}'.format(
+            odoo_database, args.url))
 
     auth_params = {
         'host': odoo_host,
