@@ -13,7 +13,10 @@
     python3 -m venv .venv
     source .venv/bin/activate
     pip install -r requirements.txt
-    python generate-envrc.py > .envrc
+    cp .envrc-template .envrc
+    # now edit mail server settings
+    python generate-secret-code.py
+    # now copy the generated code into .envrc
     direnv allow
 
 ## Usage
