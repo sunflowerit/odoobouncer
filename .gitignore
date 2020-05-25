@@ -1,5 +1,4 @@
-.direnv
-.envrc
+.env
 *.pyc
 *.swp
 *.swo

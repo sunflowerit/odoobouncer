@@ -2,42 +2,52 @@
 # Copyright 2020 Sunflower IT
 
 # TODO: for extra safety, dont let session_id be Odoo session id,
-# but make a new JWT token that includes the Odoo session id, and translate in NGINX.
-# TODO: prevent people logging out, but setting session_id again with cookie manager,
-# then coming to Odoo login screen and guessing admin password.
+# but make a new JWT token that includes the Odoo session id,
+# and translate in NGINX.
+# TODO: prevent people logging out, but setting session_id again
+# with cookie manager, then coming to Odoo login screen and
+# guessing admin password.
 
 import sys
-assert sys.version_info.major == 3, 'Requires Python 3.'
-
-import argparse
-import base64
 import bottle
-import configparser
 import odoorpc
 import os
 import pyotp
 import re
 import smtplib
-import signal
-import threading
 
 from bottle import \
-    redirect, request, response, route, run, static_file, template
+    redirect, request, response, static_file, template
 from email.mime.text import MIMEText
 from pathlib import Path
-from urllib.parse import urlparse
 
 from lib.db import DB
+from lib.odooauth import OdooAuthHandler
 
-# TODO: should this be in __main__ ?
+
+assert sys.version_info.major == 3, 'Requires Python 3.'
 
 email_regex = re.compile(
     r"^[A-Za-z0-9\.\+_-]+@[A-Za-z0-9\._-]+\.[a-zA-Z]*$")
 
 # load and check HOTP secret
 HOTP_SECRET = os.environ.get('NGINX_ODOO_HOTP_SECRET')
-if not HOTP_SECRET or len(HOTP_SECRET) != 16:
-    sys.exit('HOTP secret in .envrc must be 16 characters')
+hotp_secret_length = len(HOTP_SECRET) if HOTP_SECRET else 0
+if hotp_secret_length != 16:
+    sys.exit('HOTP secret in .env must be 16 characters, has {}'.format(
+        hotp_secret_length))
+
+# load and check listen settings
+# (when running as a developer, from command line instead of with uwsgi)
+LISTEN_PORT = os.environ.get('NGINX_ODOO_PORT', 8888)
+LISTEN_HOST = os.environ.get('NGINX_ODOO_HOST', 'localhost')
+
+# load and check branding settings
+BRANDING = os.environ.get('NGINX_ODOO_BRANDING', '')
+BACKGROUNDCOLOR = os.environ.get('NGINX_ODOO_BACKGROUND_COLOR', '')
+BUTTONCOLOR = os.environ.get('NGINX_ODOO_BUTTON_COLOR', '')
+BUTTONHOVERCOLOR = os.environ.get('NGINX_ODOO_BUTTON_HOVER_COLOR', '')
+BUTTONSHADOWCOLOR = os.environ.get('NGINX_ODOO_BUTTON_SHADOW_COLOR', '')
 
 # load and check email settings
 SMTP_SERVER = os.environ.get('NGINX_ODOO_SMTP_SERVER')
@@ -45,7 +55,7 @@ SMTP_PORT = os.environ.get('NGINX_ODOO_SMTP_PORT', 25)
 SMTP_FROM = os.environ.get('NGINX_ODOO_SMTP_FROM')
 SMTP_TO = os.environ.get('NGINX_ODOO_SMTP_TO')
 if not SMTP_SERVER or not SMTP_FROM:
-    sys.exit('SMTP settings not set in .envrc')
+    sys.exit('SMTP settings not set in .env')
 s = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
 s.close()
 
@@ -62,46 +72,50 @@ if db_perm != 0o600:
         db_path, db_perm))
 db.cleanup()
 
+# check Odoo settings
+ODOO_PORT = os.environ.get('NGINX_ODOO_ODOO_PORT', '8069')
+ODOO_HOST = os.environ.get('NGINX_ODOO_ODOO_HOST', 'localhost')
+ODOO_DATABASE = os.environ.get('NGINX_ODOO_ODOO_DATABASE')
+if not ODOO_DATABASE:
+    sys.exit('Odoo settings not set in .env')
 
-class OdooAuthHandler():
-    
-    params =  {
-        'host': None,
-        'port': None,
-    }
+# try to connect to odoo
+try:
+    odoo = odoorpc.ODOO(ODOO_HOST, port=ODOO_PORT)
+except Exception:
+    sys.exit('Odoo not running at {}:{}'.format(
+        ODOO_HOST, ODOO_PORT))
+databases = odoo.db.list()
+if ODOO_DATABASE not in databases:
+    sys.exit('Database {} not present at {}:{}'.format(
+        ODOO_DATABASE, ODOO_HOST, ODOO_PORT))
 
-    @classmethod
-    def set_params(cls, params):
-        cls.params = params
+auth_params = {
+    'host': ODOO_HOST,
+    'port': ODOO_PORT,
+    'database': ODOO_DATABASE,
+}
+OdooAuthHandler.set_params(auth_params)
 
-    def check_login(self, username, password):
-        host = self.params.get('host')
-        port = self.params.get('port')
-        database = self.params.get('database')
-        try:
-            odoo = odoorpc.ODOO(host, port=port, protocol='jsonrpc')
-            data = odoo.json('/web/session/authenticate', {
-                'db': database, 'login': username, 'password': password
-            })
-            result = data.get('result')
-            session_id = result.get('session_id')
-            if not result.get('uid') or not session_id:
-                return False
-            # TODO: check user object for the 'portal flag'
-            return session_id
-        except odoorpc.error.RPCError:
-            # TODO: log exception
-            return False
+theme_params = {
+  'backgroundcolor': BACKGROUNDCOLOR,
+  'buttoncolor': BUTTONCOLOR,
+  'buttonshadowcolor': BUTTONSHADOWCOLOR,
+  'buttonhovercolor': BUTTONHOVERCOLOR,
+  'branding': BRANDING,
+}
+
+app = application = bottle.Bottle()
 
 
 # Static Routes (CSS, images)
-@route("/static/<filepath:re:.*\.(css|jpg|png)>", method='GET')
+@app.route("/static/<filepath:re:.*\.(css|jpg|png)>", method='GET')
 def css(filepath):
     return static_file(filepath, root="static")
 
 
 # Session logout
-@route('/logout')
+@app.route('/logout', method='GET')
 def logout_session():
     session = request.get_cookie('session_id')
     db.remove_session(session)
@@ -109,7 +123,7 @@ def logout_session():
 
 
 # Session verification
-@route('/auth')
+@app.route('/auth', method='GET')
 def verify_session():
     session = request.get_cookie('session_id')
     if db.verify_session(session):
@@ -118,10 +132,10 @@ def verify_session():
 
 
 # Login page
-@route('/')
+@app.route('/', method='GET')
 def login_page():
     # TODO: extra protection eg. by IP or browser signature
-    return template('login')
+    return template('login', theme_params)
 
 
 def send_mail(username, code):
@@ -146,7 +160,7 @@ def send_mail(username, code):
 
 
 # Handle login
-@route('/', method='POST')
+@app.route('/', method='POST')
 def do_verify():
 
     # handle username/password
@@ -165,7 +179,8 @@ def do_verify():
                 # TODO: show failed message
                 # https://github.com/polonel/SnackBar
                 return redirect('/')
-            return template('hotp', counter=counter, code=code)
+            return template(
+                'hotp', dict(theme_params.items(), counter=counter, code=code))
         else:
             # TODO: show failed password message
             # TODO: brute force protection
@@ -191,52 +206,23 @@ def do_verify():
 
     return redirect('/')
 
+class StripPathMiddleware(object):
+    '''
+    Get that slash out of the request
+    '''
+    def __init__(self, a):
+        self.a = a
+    def __call__(self, e, h):
+        e['PATH_INFO'] = e['PATH_INFO'].rstrip('/')
+        return self.a(e, h)
 
+
+# this part will run when file is started directly
+# but not when started with uWSGI
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description="""Simple Nginx Odoo authentication helper.""")
 
-    # Group for listen options:
-    group = parser.add_argument_group("Listen options")
-    group.add_argument('--host',  metavar="hostname",
-        default="localhost", help="host to bind (Default: localhost)")
-    group.add_argument('-p', '--port', metavar="port", type=int,
-        default=8888, help="port to bind (Default: 8888)")
-
-    # Odoo options:
-    group = parser.add_argument_group(title="Odoo options")
-    group.add_argument('-u', '--url', metavar="URL",
-        default="http://localhost:8069",
-        help=("Odoo URI to query (Default: http://localhost:8069)"))
-    group.add_argument('-d', '--database', metavar="URL",
-        required=True,
-        help=("Odoo database to query (Default: freshfilter_demo)"))
-
-    # Parse arguments
-    args = parser.parse_args()
-
-    # Discover more about the Odoo instance
-    url = urlparse(args.url)
-    assert url.scheme == 'http', 'HTTPS not supported'
-    odoo_port = url.port
-    odoo_host = url.hostname
-    odoo_database = args.database
-
-    try:
-        odoo = odoorpc.ODOO(odoo_host, port=odoo_port)
-    except Exception:
-        sys.exit('Odoo not running at {}'.format(args.url))
-
-    databases = odoo.db.list()
-    if odoo_database not in databases:
-        sys.exit('Database {} not present at {}'.format(
-            odoo_database, args.url))
-
-    auth_params = {
-        'host': odoo_host,
-        'port': odoo_port,
-        'database': odoo_database,
-    }
-    OdooAuthHandler.set_params(auth_params)
-
-    run(server='paste', host=args.host, port=args.port)
+    # this is just for debug purposes; production runs on UWSGI
+    bottle.run(
+        app=StripPathMiddleware(app),
+        host=LISTEN_HOST,
+        port=LISTEN_PORT)
