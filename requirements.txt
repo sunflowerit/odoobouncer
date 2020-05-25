@@ -1,6 +1,0 @@
-wheel
-odoorpc
-bottle
-python-dateutil
-paste
-pyotp

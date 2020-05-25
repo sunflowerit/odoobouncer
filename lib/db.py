@@ -6,7 +6,7 @@ import string
 from datetime import datetime
 
 
-class DB(object):    
+class DB(object):
     """DB initializes and manipulates SQLite3 databases."""
 
     session_cache = {}

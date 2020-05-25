@@ -72,18 +72,15 @@ body, input, button {
 }
 .login form button {
   margin-top: 20px;
-  background: #27AE60;
   border: none;
   font-size: 1.6em;
   font-weight: 300;
   padding: 5px 0;
   width: 100%;
   border-radius: 3px;
-  color: #b3eecc;
-  border-bottom: 4px solid #1e8449;
+  border-bottom: 4px solid black;
 }
 .login form button:hover {
-  background: #30b166;
   -webkit-animation: hop 1s;
   animation: hop 1s;
 }
