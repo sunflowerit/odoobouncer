@@ -32,7 +32,7 @@ Now create a new UWSGI config file:
       env = %(_)
     plugins = python3
     virtualenv = /home/ubuntu/nginx-odoo/.venv
-    socket = :8888
+    http-socket = :8888
     chdir = /home/ubuntu/nginx-odoo
     master = true
     file = nginx-odoo.py
