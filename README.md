@@ -41,5 +41,29 @@ Now create a new UWSGI config file:
 
 Now configure NGINX:
 
-TODO: explain how to configure nginx `auth_request` to http://127.0.0.1:8888/
+    auth_request /nginx-odoo-auth;
 
+    location /web/session/logout {
+        proxy_pass http://localhost:8888/logout;
+        proxy_pass_request_body off;
+    }
+
+    location /web/session/destroy {
+        proxy_pass http://localhost:8888/logout;
+        proxy_pass_request_body off;
+    }
+
+    location = /nginx-odoo-auth {
+        proxy_pass http://localhost:8888/auth;
+        proxy_pass_request_body off;
+    }
+
+    location ~ /nginx-odoo-login(.*)$ {
+        auth_request off;
+        proxy_pass http://localhost:8888$1;
+        proxy_redirect     off;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
