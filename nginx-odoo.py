@@ -41,11 +41,12 @@ if not HOTP_SECRET or len(HOTP_SECRET) != 16:
 
 # load and check email settings
 SMTP_SERVER = os.environ.get('NGINX_ODOO_SMTP_SERVER')
+SMTP_PORT = os.environ.get('NGINX_ODOO_SMTP_PORT', 25)
 SMTP_FROM = os.environ.get('NGINX_ODOO_SMTP_FROM')
 SMTP_TO = os.environ.get('NGINX_ODOO_SMTP_TO')
 if not SMTP_SERVER or not SMTP_FROM:
     sys.exit('SMTP settings not set in .envrc')
-s = smtplib.SMTP(SMTP_SERVER)
+s = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
 s.close()
 
 # open database
@@ -138,7 +139,7 @@ def send_mail(username, code):
     msg['Subject'] = "Freshfilter security code: {}".format(code)
     msg['From'] = SMTP_FROM
     msg['To'] = _to
-    s = smtplib.SMTP(SMTP_SERVER)
+    s = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
     s.sendmail(SMTP_FROM, _to_list, msg.as_string())
     s.quit()
     return True

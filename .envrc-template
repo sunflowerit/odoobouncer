@@ -1,4 +1,5 @@
 export NGINX_ODOO_HOTP_SECRET='xxxxxxxxxxxxxxxxxxxxx'
 export NGINX_ODOO_SMTP_SERVER='mail.example.com'
+export NGINX_ODOO_SMTP_PORT='587'
 export NGINX_ODOO_SMTP_FROM='exampleuser@example.com'
 export NGINX_ODOO_SMTP_TO='examplereceiver@example.com'
