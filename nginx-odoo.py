@@ -39,8 +39,8 @@ if hotp_secret_length != 16:
 
 # load and check listen settings
 # (when running as a developer, from command line instead of with uwsgi)
-LISTEN_PORT = os.environ.get('NGINX_ODOO_PORT', 8888)
-LISTEN_HOST = os.environ.get('NGINX_ODOO_HOST', 'localhost')
+LISTEN_PORT = os.environ.get('NGINX_ODOO_LISTEN_PORT', 8888)
+LISTEN_HOST = os.environ.get('NGINX_ODOO_LISTEN_HOST', 'localhost')
 
 # load and check branding settings
 BRANDING = os.environ.get('NGINX_ODOO_BRANDING', '')
@@ -149,8 +149,12 @@ def send_mail(username, code):
     _to_list = _to.split(',')
     if not all(email_regex.match(t) for t in _to_list):
         return False
-    msg = MIMEText("Freshfilter security code: {}".format(code))
-    msg['Subject'] = "Freshfilter security code: {}".format(code)
+    if BRANDING:
+        msgtext = "{} security code: {}".format(BRANDING, code)
+    else:
+        msgtext = "Security code: {}".format(code)
+    msg = MIMEText(msgtext)
+    msg['Subject'] = msgtext
     msg['From'] = SMTP_FROM
     msg['To'] = _to
     s = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
