@@ -114,6 +114,29 @@ def css(filepath):
     return static_file(filepath, root="static")
 
 
+# Session login
+@app.route('/web/session/authenticate', method='POST')
+def authenticate():
+    params = request.json.get('params')
+    db = params.get('db')
+    username = params.get('login')
+    password = params.get('password')
+    if username and password:
+        handler = OdooAuthHandler()
+        session_id = handler.check_login(username, password)
+        if session_id:
+            hotp = pyotp.HOTP(HOTP_SECRET)
+            counter, code = db.next_hotp_id(session_id)
+            key = hotp.at(counter)
+            # TODO: keep a logfile about sent mails
+            if send_mail(username, key):
+                return {}
+                # TODO: return success, and hotp code
+                # return {'result': {'uid': }}... see app what is expected, or curl
+    # TODO: return failure
+    return {}
+
+
 # Session logout
 @app.route('/logout', method='GET')
 def logout_session():
