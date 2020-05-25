@@ -3,6 +3,7 @@
 import pyotp
 
 print(
-    "export FFHOTP_SECRET='{}'".format(
+    "Copypaste this line into .envrc:\n"
+    "export NGINX_ODOO_HOTP_SECRET='{}'".format(
         pyotp.random_base32()),
 )

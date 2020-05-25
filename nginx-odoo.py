@@ -35,14 +35,14 @@ email_regex = re.compile(
     r"^[A-Za-z0-9\.\+_-]+@[A-Za-z0-9\._-]+\.[a-zA-Z]*$")
 
 # load and check HOTP secret
-HOTP_SECRET = os.environ.get('FFHOTP_SECRET')
+HOTP_SECRET = os.environ.get('NGINX_ODOO_HOTP_SECRET')
 if not HOTP_SECRET or len(HOTP_SECRET) != 16:
     sys.exit('HOTP secret in .envrc must be 16 characters')
 
 # load and check email settings
-SMTP_SERVER = os.environ.get('FFSMTP_SERVER')
-SMTP_FROM = os.environ.get('FFSMTP_FROM')
-SMTP_TO = os.environ.get('FFSMTP_TO')
+SMTP_SERVER = os.environ.get('NGINX_ODOO_SMTP_SERVER')
+SMTP_FROM = os.environ.get('NGINX_ODOO_SMTP_FROM')
+SMTP_TO = os.environ.get('NGINX_ODOO_SMTP_TO')
 if not SMTP_SERVER or not SMTP_FROM:
     sys.exit('SMTP settings not set in .envrc')
 s = smtplib.SMTP(SMTP_SERVER)
