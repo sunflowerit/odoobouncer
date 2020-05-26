@@ -144,23 +144,45 @@ def css(filepath):
 @app.route('/web/session/authenticate', method='POST')
 def authenticate():
     params = request.json.get('params')
-    db = params.get('db')
+    database = params.get('db')
     username = params.get('login')
     password = params.get('password')
-    if username and password:
+    hotp_code = params.get('hotp_code')
+    hotp_counter = params.get('hotp_counter')
+    hotp_csrf = params.get('hotp_csrf')
+    if not username and not password:
+        return bottle.HTTPResponse(status=400)
+    if not (hotp_code and hotp_counter and hotp_csrf):
         handler = OdooAuthHandler()
-        session_id = handler.check_login(username, password)
-        if session_id:
-            hotp = pyotp.HOTP(HOTP_SECRET)
-            counter, code = db.next_hotp_id(session_id)
-            key = hotp.at(counter)
-            # TODO: keep a logfile about sent mails
-            if send_mail(username, key):
-                return {}
-                # TODO: return success, and hotp code
-                # return {'result': {'uid': }}... see app what is expected, or curl
-    # TODO: return failure
-    return {}
+        data, session_id = handler.check_login(username, password)
+        if not session_id:
+            return bottle.HTTPResponse(status=401)
+        hotp = pyotp.HOTP(HOTP_SECRET)
+        hotp_counter, hotp_csrf = db.next_hotp_id(session_id)
+        hotp_code = hotp.at(hotp_counter)
+        # TODO: keep a logfile about sent mails
+        if not send_mail(username, hotp_code):
+            # for obfuscation, this needs to be the same as above
+            return bottle.HTTPResponse(status=401)
+        # TODO: finetune
+        return {
+            'hotp_counter': hotp_counter,
+            'hotp_csrf': hotp_csrf,
+        }
+    else:
+        hotp = pyotp.HOTP(HOTP_SECRET)
+        if not hotp.verify(hotp_code, int(hotp_counter)):
+            return bottle.HTTPResponse(status=401)
+        session_id = db.verify_code_and_expiry(
+            hotp_counter, hotp_csrf)
+        # login again and return new session id
+        data, session_id = handler.check_login(username, password)
+        if not session_id:
+            # for obfuscation, this needs to be the same as above
+            return bottle.HTTPResponse(status=401)
+        # save new session id, not old one
+        db.save_session(session_id)
+        return data
 
 
 # Session logout
@@ -227,7 +249,7 @@ def do_verify():
     password = request.forms.get('password')
     if username and password:
         handler = OdooAuthHandler()
-        session_id = handler.check_login(username, password)
+        data, session_id = handler.check_login(username, password)
         if session_id:
             hotp = pyotp.HOTP(HOTP_SECRET)
             counter, code = db.next_hotp_id(session_id)
