@@ -32,4 +32,4 @@ class OdooAuthHandler():
             return data, session_id
         except odoorpc.error.RPCError:
             # TODO: log exception
-            return False
+            return False, False

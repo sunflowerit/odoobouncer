@@ -164,10 +164,11 @@ def authenticate():
         if not send_mail(username, hotp_code):
             # for obfuscation, this needs to be the same as above
             return bottle.HTTPResponse(status=401)
-        # TODO: finetune
         return {
-            'hotp_counter': hotp_counter,
-            'hotp_csrf': hotp_csrf,
+            'result': {
+                'hotp_counter': hotp_counter,
+                'hotp_csrf': hotp_csrf,
+            }
         }
     else:
         hotp = pyotp.HOTP(HOTP_SECRET)
