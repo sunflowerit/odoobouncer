@@ -51,7 +51,7 @@ BUTTONSHADOWCOLOR = os.environ.get('NGINX_ODOO_BUTTON_SHADOW_COLOR', '')
 
 # load and check email settings
 SMTP_SERVER = os.environ.get('NGINX_ODOO_SMTP_SERVER')
-SMTP_SSL = int(os.environ.get('NGINX_ODOO_SMTP_SSL', 0))
+SMTP_SSL = os.environ.get('NGINX_ODOO_SMTP_SSL')
 SMTP_PORT = os.environ.get('NGINX_ODOO_SMTP_PORT', 465 if SMTP_SSL else 25)
 SMTP_FROM = os.environ.get('NGINX_ODOO_SMTP_FROM')
 SMTP_TO = os.environ.get('NGINX_ODOO_SMTP_TO')
@@ -64,9 +64,9 @@ if not SMTP_SERVER or not SMTP_FROM:
 
 def smtp_connect():
     if SMTP_SSL:
-        s = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=5)
-    else:
         s = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=5)
+    else:
+        s = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=5)
     return s
 
 
