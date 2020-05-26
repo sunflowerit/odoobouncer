@@ -51,12 +51,38 @@ BUTTONSHADOWCOLOR = os.environ.get('NGINX_ODOO_BUTTON_SHADOW_COLOR', '')
 
 # load and check email settings
 SMTP_SERVER = os.environ.get('NGINX_ODOO_SMTP_SERVER')
-SMTP_PORT = os.environ.get('NGINX_ODOO_SMTP_PORT', 25)
+SMTP_SSL = int(os.environ.get('NGINX_ODOO_SMTP_SSL', 0))
+SMTP_PORT = os.environ.get('NGINX_ODOO_SMTP_PORT', 465 if SMTP_SSL else 25)
 SMTP_FROM = os.environ.get('NGINX_ODOO_SMTP_FROM')
 SMTP_TO = os.environ.get('NGINX_ODOO_SMTP_TO')
+SMTP_USER = os.environ.get('NGINX_ODOO_SMTP_USER')
+SMTP_PASS = os.environ.get('NGINX_ODOO_SMTP_PASS')
+
 if not SMTP_SERVER or not SMTP_FROM:
     sys.exit('SMTP settings not set in .env')
-s = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+
+
+def smtp_connect():
+    if SMTP_SSL:
+        s = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=5)
+    else:
+        s = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=5)
+    return s
+
+
+def smtp_login(s):
+    if SMTP_USER:
+        s.login(SMTP_USER, SMTP_PASS)
+    return
+ 
+
+try:
+    print('Connecting to SMTP server {}:{}...'.format(SMTP_SERVER, SMTP_PORT))
+    s = smtp_connect()
+except smtplib.SMTPServerDisconnected:
+    print('...timed out. Please check your SMTP settings in .env')
+    sys.exit(1)
+smtp_login(s)
 s.close()
 
 # open database
@@ -180,9 +206,14 @@ def send_mail(username, code):
     msg['Subject'] = msgtext
     msg['From'] = SMTP_FROM
     msg['To'] = _to
-    s = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+    try:
+        s = smtp_connect()
+        smtp_login(s)
+    except smtplib.SMTPServerDisconnected:
+        pass  # log something or warn
     s.sendmail(SMTP_FROM, _to_list, msg.as_string())
     s.quit()
+    s.close()
     return True
 
 
