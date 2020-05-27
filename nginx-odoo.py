@@ -172,6 +172,8 @@ def authenticate():
         }
     else:
         hotp = pyotp.HOTP(HOTP_SECRET)
+        # TODO: memory leaks?
+        handler = OdooAuthHandler()
         if not hotp.verify(hotp_code, int(hotp_counter)):
             return bottle.HTTPResponse(status=401)
         session_id = db.verify_code_and_expiry(
@@ -198,6 +200,8 @@ def logout_session():
 @app.route('/auth', method='GET')
 def verify_session():
     session = request.get_cookie('session_id')
+    # TODO: sensitive logging, remove
+    print('Verifying {}'.format(session))
     if db.verify_session(session):
         return bottle.HTTPResponse(status=200)
     return bottle.HTTPResponse(status=401)
