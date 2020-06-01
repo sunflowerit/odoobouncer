@@ -27,7 +27,7 @@ class OdooAuthHandler():
             result = data.get('result')
             session_id = result.get('session_id')
             if not result.get('uid') or not session_id:
-                return False
+                return False, False
             # TODO: check user object for the 'portal flag'
             return data, session_id
         except odoorpc.error.RPCError:
