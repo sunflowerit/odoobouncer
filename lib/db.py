@@ -54,13 +54,13 @@ class DB(object):
         expiry = dateutil.parser.parse(expiry_string)
         self.session_cache[session] = {'expiry': expiry}
 
-    def save_session(self, session):
+    def save_session(self, session, interval):
         con = self.connect()
         cur = con.cursor()
         cur.execute('''
             insert into odoo_sessions (session_id, expiry)
-            select ?, datetime(datetime(), '+16 hours')
-        ''', (session,))
+            select ?, datetime(datetime(), ?)
+        ''', (session, interval))
         _id = cur.lastrowid
         cur.execute('''
             select expiry from odoo_sessions where id = ?

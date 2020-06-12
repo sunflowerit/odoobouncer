@@ -58,6 +58,9 @@ SMTP_TO = os.environ.get('NGINX_ODOO_SMTP_TO')
 SMTP_USER = os.environ.get('NGINX_ODOO_SMTP_USER')
 SMTP_PASS = os.environ.get('NGINX_ODOO_SMTP_PASS')
 
+# other settings
+EXPIRY_INTERVAL = os.environ.get('NGINX_ODOO_EXPIRY_INTERVAL', '+16 hours')
+
 if not SMTP_SERVER or not SMTP_FROM:
     sys.exit('SMTP settings not set in .env')
 
@@ -184,7 +187,7 @@ def authenticate():
             # for obfuscation, this needs to be the same as above
             return bottle.HTTPResponse(status=401)
         # save new session id, not old one
-        db.save_session(session_id)
+        db.save_session(session_id, EXPIRY_INTERVAL)
         return data
 
 
@@ -284,7 +287,7 @@ def do_verify():
         if not session_id:
             # TODO: show failed code message
             return redirect('/')
-        db.save_session(session_id)
+        db.save_session(session_id, EXPIRY_INTERVAL)
         # TODO: log('Setting session cookie: {}'.format(session_id))
         response.set_cookie("session_id", session_id, path='/')
         return redirect('/')
