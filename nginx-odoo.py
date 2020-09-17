@@ -168,7 +168,6 @@ def authenticate():
         hotp = pyotp.HOTP(HOTP_SECRET)
         hotp_counter, hotp_csrf = db.next_hotp_id(session_id)
         hotp_code = hotp.at(hotp_counter)
-        # TODO: keep a logfile about sent mails
         if not send_mail(username, hotp_code):
             # for obfuscation, this needs to be the same as above
             return bottle.HTTPResponse(status=401)
@@ -208,10 +207,10 @@ def logout_session():
 @app.route('/auth', method='GET')
 def verify_session():
     session = request.get_cookie('session_id')
-    # TODO: sensitive logging, remove
-    logging.info('Verifying session {}'.format(session))
     if db.verify_session(session):
         return bottle.HTTPResponse(status=200)
+    else:
+        logging.error('Failed to verify session: %s', session)
     return bottle.HTTPResponse(status=401)
 
 
@@ -223,7 +222,6 @@ def login_page():
 
 
 def send_mail(username, code):
-    # TODO: send to email address of user
     if username == 'admin' and SMTP_TO:
         _to = SMTP_TO
     else:
@@ -278,7 +276,6 @@ def do_verify():
             hotp = pyotp.HOTP(HOTP_SECRET)
             counter, code = db.next_hotp_id(session_id)
             key = hotp.at(counter)
-            # TODO: keep a logfile about sent mails
             if not send_mail(username, key):
                 message = 'Mail with security code not sent.'
                 logging.error(message)
@@ -299,13 +296,14 @@ def do_verify():
     if code and counter and hotp_code:
         hotp = pyotp.HOTP(HOTP_SECRET)
         if not hotp.verify(hotp_code, int(counter)):
-            return redirect('/')
+            message = 'Invalid security code.'
+            return template('login', dict(theme_params, error=message))
         session_id = db.verify_code_and_expiry(counter, code)
         if not session_id:
-            # TODO: show failed code message
-            return redirect('/')
+            message = 'Invalid security code (2).'
+            return template('login', dict(theme_params, error=message))
         db.save_session(session_id, EXPIRY_INTERVAL)
-        # TODO: log('Setting session cookie: {}'.format(session_id))
+        logging.info('Setting session cookie: %s', session_id)
         response.set_cookie("session_id", session_id, path='/')
         return redirect('/')
 
