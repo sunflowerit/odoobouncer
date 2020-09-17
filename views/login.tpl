@@ -14,6 +14,10 @@
         <input name="password" type="password" class="form-control" placeholder="Password">
       </div>
 
+      % if defined('error'):
+      <strong>{{ error }}</title>
+      % end
+
       <button type="submit" class="float">Login</button>
 
     </form>

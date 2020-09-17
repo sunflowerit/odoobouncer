@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    % if branding:
+    % if defined('branding'):
     <title>{{ branding }} Login</title>
     % else:
     <title>Login</title>
