@@ -8,13 +8,14 @@
 # with cookie manager, then coming to Odoo login screen and
 # guessing admin password.
 
-import sys
 import bottle
+import logging
 import odoorpc
 import os
 import pyotp
 import re
 import smtplib
+import sys
 
 from bottle import \
     redirect, request, response, static_file, template
@@ -24,8 +25,12 @@ from pathlib import Path
 from lib.db import DB
 from lib.odooauth import OdooAuthHandler
 
+from urllib.parse import urlencode
+
 
 assert sys.version_info.major == 3, 'Requires Python 3.'
+
+logging.basicConfig(level=logging.INFO)
 
 email_regex = re.compile(
     r"^[A-Za-z0-9\.\+_-]+@[A-Za-z0-9\._-]+\.[a-zA-Z]*$")
@@ -80,10 +85,10 @@ def smtp_login(s):
  
 
 try:
-    print('Connecting to SMTP server {}:{}...'.format(SMTP_SERVER, SMTP_PORT))
+    logging.info('Connecting to SMTP server {}:{}...'.format(SMTP_SERVER, SMTP_PORT))
     s = smtp_connect()
 except smtplib.SMTPServerDisconnected:
-    print('...timed out. Please check your SMTP settings in .env')
+    logging.info('...timed out. Please check your SMTP settings in .env')
     sys.exit(1)
 smtp_login(s)
 s.close()
@@ -204,7 +209,7 @@ def logout_session():
 def verify_session():
     session = request.get_cookie('session_id')
     # TODO: sensitive logging, remove
-    print('Verifying {}'.format(session))
+    logging.info('Verifying session {}'.format(session))
     if db.verify_session(session):
         return bottle.HTTPResponse(status=200)
     return bottle.HTTPResponse(status=401)
@@ -236,26 +241,37 @@ def send_mail(username, code):
     msg['Subject'] = msgtext
     msg['From'] = SMTP_FROM
     msg['To'] = _to
-    try:
-        s = smtp_connect()
-        smtp_login(s)
-    except smtplib.SMTPServerDisconnected:
-        pass  # log something or warn
-    s.sendmail(SMTP_FROM, _to_list, msg.as_string())
-    s.quit()
-    s.close()
+    s = None
+    retries = 3
+    success = False
+    logging.info('Trying to send mail..')
+    while (not success) and retries > 0:
+        try:
+            s = smtp_connect()
+            smtp_login(s)
+            s.sendmail(SMTP_FROM, _to_list, msg.as_string())
+            s.quit()
+            s.close()
+            success = True
+            break
+        except smtplib.SMTPServerDisconnected:
+            retries -= 1
+    if not success:
+        logging.error('SMTP failed after three retries')
+        return False
+    logging.info('Mail with security code sent to %s', _to)
     return True
 
 
 # Handle login
 @app.route('/', method='POST')
 def do_verify():
-
     # handle username/password
     # TODO: CSRF protection
     username = request.forms.get('username')
     password = request.forms.get('password')
     if username and password:
+        logging.info('Verifying username %s and password...', username)
         handler = OdooAuthHandler()
         data, session_id = handler.check_login(username, password)
         if session_id:
@@ -264,16 +280,17 @@ def do_verify():
             key = hotp.at(counter)
             # TODO: keep a logfile about sent mails
             if not send_mail(username, key):
-                # TODO: show failed message
-                # https://github.com/polonel/SnackBar
-                return redirect('/')
+                message = 'Mail with security code not sent.'
+                logging.error(message)
+                return template('login', dict(theme_params, error=message))
             return template(
                 'hotp', dict(theme_params.items(), counter=counter, code=code))
         else:
-            # TODO: show failed password message
             # TODO: brute force protection
             #       (block for X minutes after X attempts)
-            return redirect('/')
+            message = 'Invalid username or password.'
+            logging.info(message)
+            return template('login', dict(theme_params, error=message))
 
     # check HOTP
     counter = request.forms.get('counter')
