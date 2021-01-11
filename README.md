@@ -42,52 +42,72 @@ Now create a new UWSGI config file:
 Now configure NGINX by adding this section:
 
     # === START: Configuration for nginx-odoo ===
-    set $nginxodoourl http://127.0.0.1:8888;
-    set $odoourl http://127.0.0.1:8069;
     auth_request /nginx-odoo-auth;
+
     error_page 401 = @error401;
+
     location @error401 {
         return 302 https://$http_host/nginx-odoo-login/;
     }
-    location /web/login {
-        return 302 https://$http_host/;
-    }
-    location = /web/session/authenticate {
-        auth_request off;
-        proxy_pass $nginxodoourl;
-    }
-    location = /web/webclient/version_info {
-        auth_request off;
-        proxy_pass $odoourl;
-        proxy_pass_request_headers off;
-        proxy_set_header Content-Type application/json;
-    }
-    location = /web/database/list {
-        auth_request off;
-        proxy_pass $odoourl;
-        proxy_pass_request_headers off;
-        proxy_set_header Content-Type application/json;
+
+    location = /web/login {
+        return 302 https://$http_host/nginx-odoo-login/;
     }
 
-    location /web/session/logout {
-        proxy_pass $nginxodoourl/logout;
-        proxy_pass_request_body off;
-    }
-    location /web/session/destroy {
-        proxy_pass $nginxodoourl/logout;
-        proxy_pass_request_body off;
-    }
-    location = /nginx-odoo-auth {
-        proxy_pass $nginxodoourl/auth;
-        proxy_pass_request_body off;
-    }
-    location ~ /nginx-odoo-login(.*)$ {
+    location = /web/session/authenticate {
+        proxy_pass http://$authentication_provider_address:$authentication_provider_port;
         auth_request off;
-        proxy_pass $nginxodoourl$1;
-        proxy_redirect     off;
-        proxy_set_header   Host $host;
-        proxy_set_header   X-Real-IP $remote_addr;
-        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+
+    error_page 418 = @pass_directly_to_odoo;
+    location = /web/binary/company_logo { return 418; }
+    location ~ ^/web/static/(.*).ico$ { return 418; }
+    location ~ ^/web/static/(.*).png$ { return 418; }
+    location ~ ^/web/static/(.*).css$ { return 418; }
+    location ~ ^/web/content/(.*?)/(.*?).css$ { return 418; }
+    location ~ ^/web/content/(.*?)/(.*?)/(.*?).css$ { return 418; }
+    location ~ ^/mail/tracking/open/(.*?)/(.*?)/blank.gif { return 418; }
+    location = /web/database/list { return 418; }
+    location = /web/webclient/version_info { return 418; }
+    location = /web/reset_password { return 418; }
+    location = /web/signup { return 418; }
+    location @pass_directly_to_odoo {
+        auth_request off;
+        proxy_pass http://$web_provider_address:$web_provider_port;
+        # ===
+        # I had this, so that attackers cannot use this URL as an attack vector
+        # to fire stolen session_id's at.
+        # But it causes Odoo to come with the Set-Cookie response
+        # which starts a new un-2FA'ed session and breaks things.
+        # It's either to refuse response headers also, or to forget about it
+        # completely.
+        # ---
+        # proxy_pass_request_headers off;
+        # # for /web/webclient/version_info, /web/database/list
+        # proxy_set_header Content-Type application/json;
+        # # for /web/reset_password
+        # proxy_redirect off;
+    }
+
+    location = /web/session/logout {
+        proxy_pass http://$authentication_provider_address:$authentication_provider_port/logout;
+        proxy_pass_request_body off;
+    }
+
+    location = /web/session/destroy {
+        proxy_pass http://$authentication_provider_address:$authentication_provider_port/logout;
+        proxy_pass_request_body off;
+    }
+
+    location = /nginx-odoo-auth {
+        proxy_pass http://$authentication_provider_address:$authentication_provider_port/auth;
+        proxy_pass_request_body off;
+    }
+
+    location = /nginx-odoo-login { return 302 /nginx-odoo-login/; }
+    location ~ ^/nginx-odoo-login/(.*)$ {
+        proxy_pass http://$authentication_provider_address:$authentication_provider_port/$1;
+        proxy_redirect off;
+        auth_request off;
     }
     # === END: Configuration for nginx-odoo ===
