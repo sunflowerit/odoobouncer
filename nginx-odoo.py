@@ -83,15 +83,19 @@ def smtp_login(s):
         s.login(SMTP_USER, SMTP_PASS)
     return
  
+smtp_connected = False
 
-try:
-    logging.info('Connecting to SMTP server {}:{}...'.format(SMTP_SERVER, SMTP_PORT))
-    s = smtp_connect()
-except smtplib.SMTPServerDisconnected:
-    logging.info('...timed out. Please check your SMTP settings in .env')
-    sys.exit(1)
-smtp_login(s)
-s.close()
+def full_smtp_connect():
+    try:
+        logging.info('Connecting to SMTP server {}:{}...'.format(SMTP_SERVER, SMTP_PORT))
+        s = smtp_connect()
+        smtp_login(s)
+        s.close()
+        smtp_connected = True
+    except smtplib.SMTPServerDisconnected:
+        logging.info('...timed out. Please check your SMTP settings in .env')
+    except Exception as e:
+        logging.info(str(e))
 
 # open database
 user_home_dir = os.path.expanduser("~")
@@ -222,6 +226,8 @@ def login_page():
 
 
 def send_mail(username, code):
+    if not smtp_connected:
+        full_smtp_connect()
     if username == 'admin' and SMTP_TO:
         _to = SMTP_TO
     else:
