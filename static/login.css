@@ -80,25 +80,9 @@ body, input, button {
   border-radius: 3px;
   border-bottom: 4px solid black;
 }
-.login form button:hover {
-  -webkit-animation: hop 1s;
-  animation: hop 1s;
-}
 
 .float {
   display: inline-block;
-  -webkit-transition-duration: 0.3s;
-  transition-duration: 0.3s;
-  -webkit-transition-property: transform;
-  transition-property: transform;
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
-  box-shadow: 0 0 1px rgba(0, 0, 0, 0);
-}
-
-.float:hover, .float:focus, .float:active {
-  -webkit-transform: translateY(-3px);
-  transform: translateY(-3px);
 }
 
 /* Large Devices, Wide Screens */
