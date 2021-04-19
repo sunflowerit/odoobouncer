@@ -19,6 +19,9 @@
 
         .login form button:hover {
           background: {{ buttonhovercolor }};
+          -webkit-transition: background-color 200ms ease-in;
+          -ms-transition: background-color 200ms ease-in;
+          transition: background-color 200ms ease-in;
         }
     </style>
 
