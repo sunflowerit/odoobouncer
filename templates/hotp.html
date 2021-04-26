@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    {% if 'branding' in vars() %}
+    <title>{{ branding }} Login</title>
+    {% else %}
+    <title>Login</title>
+    {% end %}
+    <link type="text/css" href="static/login.css" rel="stylesheet">
+    <style>
+        html {
+          background-color: {{ backgroundcolor }};
+        }
+
+        .login form button {
+          background: {{ buttoncolor }};
+          border-bottom-color: {{ buttonshadowcolor }};
+        }
+
+        .login form button:hover {
+          background: {{ buttonhovercolor }};
+          -webkit-transition: background-color 200ms ease-in;
+          -ms-transition: background-color 200ms ease-in;
+          transition: background-color 200ms ease-in;
+        }
+    </style>
+
+  </head>
+
+  <body>
+    <div class="login">
+      <div class="heading">
+        <h2>Enter six-digit security code, sent to you by email</h2>
+        <form method="post">
+          <input type="hidden" name="counter" value="{{ counter }}">
+          <input type="hidden" name="code" value="{{ code }}">
+
+          <div class="input-group input-group-lg">
+            <span class="input-group-addon"><i class="fa fa-key"></i></span>
+            <input name="hotp_code" type="text" class="form-control" placeholder="Security code">
+          </div>
+
+          <button type="submit" class="float">Login</button>
+
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

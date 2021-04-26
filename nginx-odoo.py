@@ -8,168 +8,145 @@
 # with cookie manager, then coming to Odoo login screen and
 # guessing admin password.
 
-import bottle
+from tornado.web import Application,RequestHandler,StaticFileHandler
+import tornado.ioloop
+import tornado.escape
+
 import logging
 import odoorpc
 import pyotp
 
-from bottle import \
-    redirect, request, response, static_file, template
-
 import lib.config as config
 db=config.db
 OdooAuthHandler=config.OdooAuthHandler
+
 from lib.email import email
-
-from urllib.parse import urlencode
-
+# Check connection with email service
 email.test()
 
-app = application = bottle.Bottle()
+# Login page and login check
+class LoginHandler(RequestHandler):
+	def get(self):
+		# TODO: extra protection eg. by IP or browser signature
+		self.render(r'./templates/login.html',**config.theme_params)
+	def post(self):
+		# handle username/password
+		# TODO: CSRF protection
+		username=self.get_body_argument('username',default=None)
+		password=self.get_body_argument('password',default=None)
+		if username and password:
+			logging.info('Verifying username %s and password...', username)
+			handler = OdooAuthHandler()
+			data, session_id = handler.check_login(username, password)
+			if session_id:
+				hotp = pyotp.HOTP(config.HOTP_SECRET)
+				counter, code = db.next_hotp_id(session_id)
+				key = hotp.at(counter)
+				if not email.send(username, key):
+					message = 'Mail with security code not sent.'
+					logging.error(message)
+					return self.render(r'./templates/login.html',**config.theme_params,error=message)
+				return self.render(r'./templates/hotp.html',**config.theme_params,counter=counter,code=code)
+			else:
+				# TODO: brute force protection
+				#       (block for X minutes after X attempts)
+				message = 'Invalid username or password.'
+				logging.info(message)
+				return self.render(r'./templates/login.html',**config.theme_params,error=message)
 
-# Static Routes (CSS, images)
-@app.route("/static/<filepath:re:.*\.(css|jpg|png)>", method='GET')
-def css(filepath):
-    return static_file(filepath, root="static")
+		# check HOTP
+		counter=self.get_body_argument('counter',default=None)
+		code=self.get_body_argument('code',default=None)
+		hotp_code=self.get_body_argument('hotp_code',default=None)
+		if code and counter and hotp_code:
+			hotp = pyotp.HOTP(config.HOTP_SECRET)
+			if not hotp.verify(hotp_code, int(counter)):
+				message = 'Invalid security code.'
+				return self.render(r'./templates/login.html',**config.theme_params,error=message)
+			session_id = db.verify_code_and_expiry(counter, code)
+			if not session_id:
+				message = 'Invalid security code (2).'
+				return self.render(r'./templates/login.html',**config.theme_params,error=message)
+			db.save_session(session_id, config.EXPIRY_INTERVAL)
+			logging.info('Setting session cookie: %s', session_id)
+			self.set_cookie('session_id',session_id,path='/')
+			return self.redirect('/')
+		return self.redirect('/')
 
-
-# Session login
-@app.route('/web/session/authenticate', method='POST')
-def authenticate():
-    params = request.json.get('params')
-    database = params.get('db')
-    username = params.get('login')
-    password = params.get('password')
-    hotp_code = params.get('hotp_code')
-    hotp_counter = params.get('hotp_counter')
-    hotp_csrf = params.get('hotp_csrf')
-    if not username and not password:
-        return bottle.HTTPResponse(status=400)
-    if not (hotp_code and hotp_counter and hotp_csrf):
-        handler = OdooAuthHandler()
-        data, session_id = handler.check_login(username, password)
-        if not session_id:
-            return bottle.HTTPResponse(status=401)
-        hotp = pyotp.HOTP(config.HOTP_SECRET)
-        hotp_counter, hotp_csrf = db.next_hotp_id(session_id)
-        hotp_code = hotp.at(hotp_counter)
-        if not email.send(username, hotp_code):
-            # for obfuscation, this needs to be the same as above
-            return bottle.HTTPResponse(status=401)
-        return {
-            'result': {
-                'hotp_counter': hotp_counter,
-                'hotp_csrf': hotp_csrf,
-            }
-        }
-    else:
-        hotp = pyotp.HOTP(config.HOTP_SECRET)
-        # TODO: memory leaks?
-        handler = OdooAuthHandler()
-        if not hotp.verify(hotp_code, int(hotp_counter)):
-            return bottle.HTTPResponse(status=401)
-        session_id = db.verify_code_and_expiry(
-            hotp_counter, hotp_csrf)
-        # login again and return new session id
-        data, session_id = handler.check_login(username, password)
-        if not session_id:
-            # for obfuscation, this needs to be the same as above
-            return bottle.HTTPResponse(status=401)
-        # save new session id, not old one
-        db.save_session(session_id, config.EXPIRY_INTERVAL)
-        return data
-
+# Session verificaiton
+class VerifySessionHandler(RequestHandler):
+	def get(self):
+		session=self.get_cookie('session_id')
+		if db.verify_session(session):
+			self.set_status(200)
+		else:
+			logging.error(f'Failed to verify session: {session}')
+			self.set_status(401)
+		self.finish()
 
 # Session logout
-@app.route('/logout', method='GET')
-def logout_session():
-    session = request.get_cookie('session_id')
-    db.remove_session(session)
-    return redirect('/')
+class LogoutHandler(RequestHandler):
+	def get(self):
+		session=self.get_cookie('session_id')
+		db.remove_session(session)
+		return self.redirect('/')
+
+# Session login
+class AuthenticateHandler(RequestHandler):
+	def post(self):
+		params=tornado.escape.json_decode(self.request.body)['params']
+		database=params['db'] if 'db' in params else None
+		username=params['login'] if 'login' in params else None
+		password=params['password'] if 'password' in params else None
+		hotp_code=params['hotp_code'] if 'hotp_code' in params else None
+		hotp_counter=params['hotp_counter'] if 'hotp_counter' in params else None
+		hotp_csrf=params['hotp_csrf'] if 'hotp_csrf' in params else None
+		if not username and not password:
+			return self.set_status(400)
+		if not (hotp_code and hotp_counter and hotp_csrf):
+			handler = OdooAuthHandler()
+			data, session_id = handler.check_login(username, password)
+			if not session_id:
+				return self.set_status(401)
+			hotp = pyotp.HOTP(config.HOTP_SECRET)
+			hotp_counter, hotp_csrf = db.next_hotp_id(session_id)
+			hotp_code = hotp.at(hotp_counter)
+			if not email.send(username, hotp_code):
+				# for obfuscation, this needs to be the same as above
+				return self.set_status(401)
+			return self.write({
+				'result': {
+					'hotp_counter': hotp_counter,
+					'hotp_csrf': hotp_csrf,
+				}
+			})
+		else:
+			hotp = pyotp.HOTP(config.HOTP_SECRET)
+			# TODO: memory leaks?
+			handler = OdooAuthHandler()
+			if not hotp.verify(hotp_code, int(hotp_counter)):
+				return self.set_status(401)
+			session_id = db.verify_code_and_expiry(
+				hotp_counter, hotp_csrf)
+			# login again and return new session id
+			data, session_id = handler.check_login(username, password)
+			if not session_id:
+				# for obfuscation, this needs to be the same as above
+				return self.set_status(401)
+			# save new session id, not old one
+			db.save_session(session_id, config.EXPIRY_INTERVAL)
+			return self.write(data)
 
 
-# Session verification
-@app.route('/auth', method='GET')
-def verify_session():
-    session = request.get_cookie('session_id')
-    if db.verify_session(session):
-        return bottle.HTTPResponse(status=200)
-    else:
-        logging.error('Failed to verify session: %s', session)
-    return bottle.HTTPResponse(status=401)
+app=Application([
+	(r'/',LoginHandler),
+	(r'/auth/?',VerifySessionHandler),
+	(r'/logout/?',LogoutHandler),
+	(r'/static/(.*\.(css|jpg|png))/?',StaticFileHandler,{'path':r'./static'}),
+	(r'/web/session/authenticate/?',AuthenticateHandler)
+])
 
-
-# Login page
-@app.route('/', method='GET')
-def login_page():
-    # TODO: extra protection eg. by IP or browser signature
-    return template('login', config.theme_params)
-
-# Handle login
-@app.route('/', method='POST')
-def do_verify():
-    # handle username/password
-    # TODO: CSRF protection
-    username = request.forms.get('username')
-    password = request.forms.get('password')
-    if username and password:
-        logging.info('Verifying username %s and password...', username)
-        handler = OdooAuthHandler()
-        data, session_id = handler.check_login(username, password)
-        if session_id:
-            hotp = pyotp.HOTP(config.HOTP_SECRET)
-            counter, code = db.next_hotp_id(session_id)
-            key = hotp.at(counter)
-            if not email.send(username, key):
-                message = 'Mail with security code not sent.'
-                logging.error(message)
-                return template('login', dict(config.theme_params, error=message))
-            return template(
-                'hotp', dict(config.theme_params.items(), counter=counter, code=code))
-        else:
-            # TODO: brute force protection
-            #       (block for X minutes after X attempts)
-            message = 'Invalid username or password.'
-            logging.info(message)
-            return template('login', dict(config.theme_params, error=message))
-
-    # check HOTP
-    counter = request.forms.get('counter')
-    code = request.forms.get('code')
-    hotp_code = request.forms.get('hotp_code')
-    if code and counter and hotp_code:
-        hotp = pyotp.HOTP(config.HOTP_SECRET)
-        if not hotp.verify(hotp_code, int(counter)):
-            message = 'Invalid security code.'
-            return template('login', dict(config.theme_params, error=message))
-        session_id = db.verify_code_and_expiry(counter, code)
-        if not session_id:
-            message = 'Invalid security code (2).'
-            return template('login', dict(config.theme_params, error=message))
-        db.save_session(session_id, config.EXPIRY_INTERVAL)
-        logging.info('Setting session cookie: %s', session_id)
-        response.set_cookie("session_id", session_id, path='/')
-        return redirect('/')
-
-    return redirect('/')
-
-class StripPathMiddleware(object):
-    '''
-    Get that slash out of the request
-    '''
-    def __init__(self, a):
-        self.a = a
-    def __call__(self, e, h):
-        e['PATH_INFO'] = e['PATH_INFO'].rstrip('/')
-        return self.a(e, h)
-
-
-# this part will run when file is started directly
-# but not when started with uWSGI
-if __name__ == '__main__':
-
-    # this is just for debug purposes; production runs on UWSGI
-    bottle.run(
-        app=StripPathMiddleware(app),
-        host=config.LISTEN_HOST,
-        port=config.LISTEN_PORT)
+if __name__=='__main__':
+	app.listen(config.LISTEN_PORT)
+	print(f'Listening at port {config.LISTEN_PORT}')
+	tornado.ioloop.IOLoop.current().start()
