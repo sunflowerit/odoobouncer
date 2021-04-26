@@ -1,11 +1,11 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "8dba6adbf0508ce88d6a78e5899e001dda56e1060b22739a88297a667935d187"
+            "sha256": "75ce0659ff27b10ee6c66cacb5b5823b1a1e92323bbbc4a7576cf6dc9100f743"
         },
         "pipfile-spec": 6,
         "requires": {
-            "python_version": "3.6"
+            "python_version": "3.9"
         },
         "sources": [
             {
@@ -18,11 +18,11 @@
     "default": {
         "bottle": {
             "hashes": [
-                "sha256:0819b74b145a7def225c0e83b16a4d5711fde751cd92bae467a69efce720f69e",
-                "sha256:43157254e88f32c6be16f8d9eb1f1d1472396a4e174ebd2bf62544854ecf37e7"
+                "sha256:a9d73ffcbc6a1345ca2d7949638db46349f5b2b77dac65d6494d45c23628da2c",
+                "sha256:f6b8a34fe9aa406f9813c02990db72ca69ce6a158b5b156d2c41f345016a723d"
             ],
             "index": "pypi",
-            "version": "==0.12.18"
+            "version": "==0.12.19"
         },
         "odoorpc": {
             "hashes": [
@@ -34,11 +34,11 @@
         },
         "pyotp": {
             "hashes": [
-                "sha256:c88f37fd47541a580b744b42136f387cdad481b560ef410c0d85c957eb2a2bc0",
-                "sha256:fc537e8acd985c5cbf51e11b7d53c42276fee017a73aec7c07380695671ca1a1"
+                "sha256:9d144de0f8a601d6869abe1409f4a3f75f097c37b50a36a3bf165810a6e23f28",
+                "sha256:d28ddfd40e0c1b6a6b9da961c7d47a10261fb58f378cb00f05ce88b26df9c432"
             ],
             "index": "pypi",
-            "version": "==2.3.0"
+            "version": "==2.6.0"
         },
         "python-dateutil": {
             "hashes": [
@@ -53,6 +53,7 @@
                 "sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259",
                 "sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced"
             ],
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.15.0"
         }
     },
