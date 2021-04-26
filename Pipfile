@@ -6,10 +6,10 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-bottle = "*"
 python-dateutil = "*"
 pyotp = "*"
 OdooRPC = "*"
+tornado = "*"
 
 [requires]
 python_version = "3.9"
