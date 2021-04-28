@@ -137,7 +137,6 @@ class AuthenticateHandler(RequestHandler):
 			db.save_session(session_id, config.EXPIRY_INTERVAL)
 			return self.write(data)
 
-
 app=Application([
 	(r'/',LoginHandler),
 	(r'/auth/?',VerifySessionHandler),
