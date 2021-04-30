@@ -72,7 +72,12 @@ class LoginHandler(RequestHandler):
 			db.save_session(session_id, config.EXPIRY_INTERVAL)
 			logging.info('Setting session cookie: %s', session_id)
 			self.set_cookie('session_id',session_id,path='/')
-			return self.redirect('/')
+			redirect_url=self.get_argument('redirect','/')
+			if redirect_url!='/':
+				if not redirect_url.endswith('/'):
+					redirect_url+='/'
+				redirect_url=f'{redirect_url}auth/{session_id}'
+			return self.redirect(redirect_url)
 		return self.redirect('/')
 
 # Session verificaiton
