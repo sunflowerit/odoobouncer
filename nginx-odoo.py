@@ -42,6 +42,8 @@ class LoginHandler(RequestHandler):
 				hotp = pyotp.HOTP(config.HOTP_SECRET)
 				counter, code = db.next_hotp_id(session_id)
 				key = hotp.at(counter)
+				if config.debug:
+					logging.info(f'HOTP code: {key}')
 				if not email.send(username, key):
 					message = 'Mail with security code not sent.'
 					logging.error(message)
@@ -111,6 +113,8 @@ class AuthenticateHandler(RequestHandler):
 			hotp = pyotp.HOTP(config.HOTP_SECRET)
 			hotp_counter, hotp_csrf = db.next_hotp_id(session_id)
 			hotp_code = hotp.at(hotp_counter)
+			if config.debug:
+				logging.info(f'HOTP code: {hotp_code}')
 			if not email.send(username, hotp_code):
 				# for obfuscation, this needs to be the same as above
 				return self.set_status(401)

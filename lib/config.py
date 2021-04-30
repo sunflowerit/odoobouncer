@@ -96,3 +96,7 @@ theme_params = {
 	'buttonhovercolor': BUTTONHOVERCOLOR,
 	'branding': BRANDING,
 }
+
+# Debug
+debug=os.environ.get('NGINX_ODOO_DEBUG','false').lower()=='true'
+logging.info(debug)
