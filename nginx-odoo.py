@@ -28,6 +28,16 @@ email.test()
 class LoginHandler(RequestHandler):
 	def get(self):
 		# TODO: extra protection eg. by IP or browser signature
+
+		# Redirect to other service
+		# needed when using the bouncer to authenticate a user with the bouncer
+		redirect_url=self.get_argument('redirect',None)
+		if redirect_url!=None:
+			session_id=self.get_cookie('session_id')
+			if db.verify_session(session_id):
+				if not redirect_url.endswith('/'):
+					redirect_url+='/'
+				return self.redirect(f'{redirect_url}auth/{session_id}')
 		self.render(r'./templates/login.html',**config.theme_params)
 	def post(self):
 		# handle username/password
@@ -46,7 +56,6 @@ class LoginHandler(RequestHandler):
 					# Display hotp in the log in stead of sending an email
 					logging.info(f'HOTP code: {key}')
 				else:
-					logging.info(f'HOTP code: {key}')
 					if not email.send(username, key):
 						message = 'Mail with security code not sent.'
 						logging.error(message)
@@ -75,6 +84,8 @@ class LoginHandler(RequestHandler):
 			db.save_session(session_id, config.EXPIRY_INTERVAL)
 			logging.info('Setting session cookie: %s', session_id)
 			self.set_cookie('session_id',session_id,path='/')
+			# Redirect to other service
+			# needed when using the bouncer to authenticate a user with the bouncer
 			redirect_url=self.get_argument('redirect','/')
 			if redirect_url!='/':
 				if not redirect_url.endswith('/'):
