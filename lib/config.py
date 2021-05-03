@@ -98,5 +98,4 @@ theme_params = {
 }
 
 # Debug
-debug=os.environ.get('NGINX_ODOO_DEBUG','false').lower()=='true'
-logging.info(debug)
+disable_email=os.environ.get('NGINX_ODOO_DISABLE_EMAIL','false').lower()=='true'
