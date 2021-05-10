@@ -92,16 +92,19 @@ Now configure NGINX by adding this section:
     location = /web/session/logout {
         proxy_pass http://$authentication_provider_address:$authentication_provider_port/logout;
         proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
     }
 
     location = /web/session/destroy {
         proxy_pass http://$authentication_provider_address:$authentication_provider_port/logout;
         proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
     }
 
     location = /nginx-odoo-auth {
         proxy_pass http://$authentication_provider_address:$authentication_provider_port/auth;
         proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
     }
 
     location = /nginx-odoo-login { return 302 /nginx-odoo-login/; }
