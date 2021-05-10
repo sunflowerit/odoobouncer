@@ -104,9 +104,6 @@ class VerifySessionHandler(RequestHandler):
       logging.error(f'Failed to verify session: {session}')
       self.set_status(401)
     self.finish()
-  def post(self):
-    self.set_status(200)
-    self.finish()
 
 # Session logout
 class LogoutHandler(RequestHandler):
