@@ -38,8 +38,8 @@ email_regex = re.compile(
 # load and check HOTP secret
 HOTP_SECRET = os.environ.get('NGINX_ODOO_HOTP_SECRET')
 hotp_secret_length = len(HOTP_SECRET) if HOTP_SECRET else 0
-if hotp_secret_length != 16:
-    sys.exit('HOTP secret in .env must be 16 characters, has {}'.format(
+if hotp_secret_length < 16:
+    sys.exit('HOTP secret in .env must be >= 16 characters, has {}'.format(
         hotp_secret_length))
 
 # load and check listen settings
