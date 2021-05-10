@@ -68,10 +68,6 @@ try:
 except Exception:
 	sys.exit('Odoo not running at {}:{}'.format(
 		ODOO_HOST, ODOO_PORT))
-databases = odoo.db.list()
-if ODOO_DATABASE not in databases:
-	sys.exit('Database {} not present at {}:{}'.format(
-		ODOO_DATABASE, ODOO_HOST, ODOO_PORT))
 
 auth_params = {
 	'host': ODOO_HOST,
