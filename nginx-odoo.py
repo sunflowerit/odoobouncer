@@ -39,7 +39,7 @@ class LoginHandler(RequestHandler):
           redirect_url+='/'
         return self.redirect(f'{redirect_url}auth/{session_id}')
     self.render(r'./templates/login.html',**config.theme_params)
-  def post(self):
+  async def post(self):
     # handle username/password
     # TODO: CSRF protection
     username=self.get_body_argument('username',default=None)
@@ -56,7 +56,7 @@ class LoginHandler(RequestHandler):
           # Display hotp in the log in stead of sending an email
           logging.info(f'HOTP code: {key}')
         else:
-          if not email.send(username, key):
+          if not await email.send(username, key):
             message = 'Mail with security code not sent.'
             logging.error(message)
             return self.render(r'./templates/login.html',**config.theme_params,error=message)
@@ -114,7 +114,7 @@ class LogoutHandler(RequestHandler):
 
 # Session login
 class AuthenticateHandler(RequestHandler):
-  def post(self):
+  async def post(self):
     params=tornado.escape.json_decode(self.request.body)['params']
     database=params['db'] if 'db' in params else None
     username=params['login'] if 'login' in params else None
@@ -136,7 +136,7 @@ class AuthenticateHandler(RequestHandler):
         # Display hotp in the log in stead of sending an email
         logging.info(f'HOTP code: {hotp_code}')
       else:
-        if not email.send(username, hotp_code):
+        if not await email.send(username, hotp_code):
           # for obfuscation, this needs to be the same as above
           return self.set_status(401)
       return self.write({
