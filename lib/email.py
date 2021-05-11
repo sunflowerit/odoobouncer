@@ -1,5 +1,6 @@
 import smtplib
 import lib.config as config
+from lib.force_async import force_async
 import logging
 import re
 
@@ -46,6 +47,7 @@ class email:
 		email.login(s)
 		s.close()
 
+	@force_async
 	def send(username, code):
 		if not email.connected:
 			email.full_connect()
