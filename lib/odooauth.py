@@ -29,12 +29,23 @@ class OdooAuthHandler():
             data = odoo.json('/web/session/authenticate', {
                 'db': database, 'login': username, 'password': password
             })
+            cookie_processor = [
+                handler for handler in odoo._connector._opener.handlers
+                if isinstance(handler, urllib.request.HTTPCookieProcessor)
+            ]
+            if not cookie_processor:
+                logging.info('Authentication failed: cookiejar not found')
+                return False, False
+            cookiejar = cookie_processor[0].cookiejar
+            cookies = [cookie for cookie in list(cookiejar) if cookie.name == 'session_id']
+            if not cookies or not cookies[0].value:
+                logging.info('Authentication failed: session cookie not found')
             result = data.get('result')
-            session_id = result.get('session_id')
-            if not result.get('uid') or not session_id:
-                logging.info('Authentication failed')
+            if not result.get('uid'):
+                logging.info('Authentication failed: no uid in response')
                 return False, False
             # TODO: check user object for the 'portal flag'
+            session_id = cookies[0].value
             return data, session_id
         except (odoorpc.error.RPCError, urllib.error.URLError) as e:
             logging.error('Odoo exception: %s', str(e))
