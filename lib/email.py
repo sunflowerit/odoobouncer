@@ -1,6 +1,5 @@
-import smtplib
+import aiosmtplib
 import lib.config as config
-from lib.force_async import force_async
 import logging
 import re
 
@@ -10,47 +9,47 @@ class email:
 	connected=False
 	email_regex = re.compile(
 		r"^[A-Za-z0-9\.\+_-]+@[A-Za-z0-9\._-]+\.[a-zA-Z]*$")
-	def connect():
+	async def connect():
 		if config.SMTP_SSL:
-			s = smtplib.SMTP_SSL(config.SMTP_SERVER, config.SMTP_PORT, timeout=5)
+			s = aiosmtplib.SMTP(config.SMTP_SERVER, config.SMTP_PORT, timeout=5, use_tls=True)
 		else:
-			s = smtplib.SMTP(config.SMTP_SERVER, config.SMTP_PORT, timeout=5)
+			s = aiosmtplib.SMTP(config.SMTP_SERVER, config.SMTP_PORT, timeout=5, use_tls=False)
+		await s.connect()
 		return s
 
-	def login(s):
+	async def login(s):
 		if config.SMTP_USER:
-			s.login(config.SMTP_USER, config.SMTP_PASS)
+			await s.login(config.SMTP_USER, config.SMTP_PASS)
 		return
 
-	def full_connect():
+	async def full_connect():
 		try:
 			logging.info('Connecting to SMTP server {}:{}...'.format(config.SMTP_SERVER, config.SMTP_PORT))
-			s = email.connect()
-			email.login(s)
+			s = await email.connect()
+			await email.login(s)
 			s.close()
 			email.connected = True
-		except smtplib.SMTPServerDisconnected:
+		except aiosmtplib.SMTPServerDisconnected:
 			logging.info('...timed out. Please check your SMTP settings in .env')
 		except Exception as e:
 			logging.info(str(e))
 
-	def test():
+	async def test():
 		if not config.SMTP_SERVER or not config.SMTP_FROM:
 			sys.exit('SMTP settings not set in .env')
 
 		try:
 			logging.info('Connecting to SMTP server {}:{}...'.format(config.SMTP_SERVER, config.SMTP_PORT))
-			s = email.connect()
-		except smtplib.SMTPServerDisconnected:
+			s = await email.connect()
+		except aiosmtplib.SMTPServerDisconnected:
 			logging.info('...timed out. Please check your SMTP settings in .env')
 			sys.exit(1)
-		email.login(s)
+		await email.login(s)
 		s.close()
 
-	@force_async
-	def send(username, code):
+	async def send(username, code):
 		if not email.connected:
-			email.full_connect()
+			await email.full_connect()
 		if username == 'admin' and config.SMTP_TO:
 			_to = config.SMTP_TO
 		else:
@@ -74,14 +73,14 @@ class email:
 		logging.info('Trying to send mail..')
 		while (not success) and retries > 0:
 			try:
-				s = email.connect()
-				email.login(s)
-				s.sendmail(config.SMTP_FROM, _to_list, msg.as_string())
-				s.quit()
+				s = await email.connect()
+				await email.login(s)
+				await s.sendmail(config.SMTP_FROM, _to_list, msg.as_string())
+				await s.quit()
 				s.close()
 				success = True
 				break
-			except smtplib.SMTPServerDisconnected:
+			except aiosmtplib.SMTPServerDisconnected:
 				retries -= 1
 		if not success:
 			logging.error('SMTP failed after three retries')
