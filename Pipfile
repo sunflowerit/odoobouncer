@@ -10,6 +10,7 @@ python-dateutil = "*"
 pyotp = "*"
 OdooRPC = "*"
 tornado = "*"
+aiosmtplib = "*"
 
 [requires]
 python_version = "3"

@@ -11,6 +11,7 @@
 from tornado.web import Application,RequestHandler,StaticFileHandler
 import tornado.ioloop
 import tornado.escape
+import asyncio
 
 import logging
 import odoorpc
@@ -21,8 +22,6 @@ db=config.db
 OdooAuthHandler=config.OdooAuthHandler
 
 from lib.email import email
-# Check connection with email service
-email.test()
 
 # Login page and login check
 class LoginHandler(RequestHandler):
@@ -171,6 +170,10 @@ app=Application([
 ], debug=True)
 
 if __name__=='__main__':
+  # Check connection with email service
+  loop=asyncio.get_event_loop()
+  loop.run_until_complete(email.test())
+
   app.listen(config.LISTEN_PORT)
   print(f'Listening at port {config.LISTEN_PORT}')
   tornado.ioloop.IOLoop.current().start()
