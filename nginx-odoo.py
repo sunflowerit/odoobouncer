@@ -14,7 +14,6 @@ import tornado.escape
 import asyncio
 
 import logging
-import odoorpc
 import pyotp
 
 import lib.config as config
@@ -46,7 +45,7 @@ class LoginHandler(RequestHandler):
     if username and password:
       logging.info('Verifying username %s and password...', username)
       handler = OdooAuthHandler()
-      data, session_id = handler.check_login(username, password)
+      data, session_id = await handler.check_login(username, password)
       if session_id:
         hotp = pyotp.HOTP(config.HOTP_SECRET)
         counter, code = db.next_hotp_id(session_id)
@@ -125,7 +124,7 @@ class AuthenticateHandler(RequestHandler):
       return self.set_status(400)
     if not (hotp_code and hotp_counter and hotp_csrf):
       handler = OdooAuthHandler()
-      data, session_id = handler.check_login(username, password)
+      data, session_id = await handler.check_login(username, password)
       if not session_id:
         return self.set_status(401)
       hotp = pyotp.HOTP(config.HOTP_SECRET)
@@ -153,7 +152,7 @@ class AuthenticateHandler(RequestHandler):
       session_id = db.verify_code_and_expiry(
         hotp_counter, hotp_csrf)
       # login again and return new session id
-      data, session_id = handler.check_login(username, password)
+      data, session_id = await handler.check_login(username, password)
       if not session_id:
         # for obfuscation, this needs to be the same as above
         return self.set_status(401)

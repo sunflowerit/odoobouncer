@@ -8,9 +8,9 @@ verify_ssl = true
 [packages]
 python-dateutil = "*"
 pyotp = "*"
-OdooRPC = "*"
 tornado = "*"
 aiosmtplib = "*"
+httpx = "*"
 
 [requires]
 python_version = "3"
