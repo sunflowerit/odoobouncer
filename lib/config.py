@@ -2,7 +2,6 @@ import os
 import sys
 import logging
 from pathlib import Path
-import odoorpc
 
 from lib.db import DB
 from lib.odooauth import OdooAuthHandler
@@ -56,22 +55,23 @@ db.cleanup()
 
 # Odoo
 # check Odoo settings
-ODOO_PORT = os.environ.get('NGINX_ODOO_ODOO_PORT', '8069')
-ODOO_HOST = os.environ.get('NGINX_ODOO_ODOO_HOST', 'localhost')
+ODOO_URL = os.environ.get('NGINX_ODOO_ODOO_URL', 'http://localhost:8069')
+if ODOO_URL.endswith('/'):
+	ODOO_URL=ODOO_URL[:-1]
 ODOO_DATABASE = os.environ.get('NGINX_ODOO_ODOO_DATABASE')
 if not ODOO_DATABASE:
 	sys.exit('Odoo settings not set in .env')
 
 # try to connect to odoo
 try:
-	odoo = odoorpc.ODOO(ODOO_HOST, port=ODOO_PORT)
+	odoo=OdooAuthHandler()
+	odoo.test(ODOO_URL)
 except Exception:
-	sys.exit('Odoo not running at {}:{}'.format(
-		ODOO_HOST, ODOO_PORT))
+	sys.exit('Odoo not running at {}'.format(
+		ODOO_URL))
 
 auth_params = {
-	'host': ODOO_HOST,
-	'port': ODOO_PORT,
+	'url': ODOO_URL+'/web/session/authenticate',
 	'database': ODOO_DATABASE,
 }
 OdooAuthHandler.set_params(auth_params)
