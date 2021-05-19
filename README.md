@@ -109,7 +109,7 @@ Now configure NGINX by adding this section:
 
     location = /nginx-odoo-login { return 302 /nginx-odoo-login/; }
     location ~ ^/nginx-odoo-login/(.*)$ {
-        proxy_pass http://$authentication_provider_address:$authentication_provider_port/$1$is_arg$args;
+        proxy_pass http://$authentication_provider_address:$authentication_provider_port/$1$is_args$args;
         proxy_redirect off;
         auth_request off;
     }

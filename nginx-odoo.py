@@ -83,7 +83,7 @@ class LoginHandler(RequestHandler):
       logging.info('Setting session cookie: %s', session_id)
       self.set_cookie('session_id',session_id,path='/')
       # Redirect to other service
-      # needed when using the bouncer to authenticate a user with the bouncer
+      # needed when using the bouncer to authenticate a user
       redirect_url=self.get_argument('redirect','/')
       if redirect_url!='/':
         if not redirect_url.endswith('/'):
