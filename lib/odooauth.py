@@ -2,40 +2,59 @@
 # Copyright 2020 Sunflower IT
 
 import logging
-import odoorpc
-import urllib
+import random
+import httpx
+import asyncio
+from pprint import pformat
 
 
 class OdooAuthHandler():
 
     params = {
-        'host': None,
-        'port': None,
+        'url': None,
+        'database': None,
     }
 
     @classmethod
     def set_params(cls, params):
         cls.params = params
 
-    def check_login(self, username, password):
-        host = self.params.get('host')
-        port = self.params.get('port')
+    async def request_odoo(self,url,params):
+        async with httpx.AsyncClient() as client:
+            json_payload = {'jsonrpc':'2.0',
+                'method':'call',
+                'params':params,
+                'id':random.randint(0,1000000000)}
+            return await client.post(url,json=json_payload)
+
+    async def check_login(self, username, password):
         database = self.params.get('database')
-        try:
-            odoo = odoorpc.ODOO(host, port=port, protocol='jsonrpc')
-            logging.info(
-                'Authenticating host %s port %s database %s user %s',
-                host, port, database, username)
-            data = odoo.json('/web/session/authenticate', {
-                'db': database, 'login': username, 'password': password
-            })
-            result = data.get('result')
-            session_id = result.get('session_id')
-            if not result.get('uid') or not session_id:
-                logging.info('Authentication failed')
-                return False, False
-            # TODO: check user object for the 'portal flag'
-            return data, session_id
-        except (odoorpc.error.RPCError, urllib.error.URLError) as e:
-            logging.error('Odoo exception: %s', str(e))
+        url=self.params.get('url')
+        params={
+            'db':database,
+            'login':username,
+            'password':password
+        }
+        resp=await self.request_odoo(url,params)
+        if not 'session_id' in resp.cookies:
+            logging.info('Authentication failed: session cookie not found')
             return False, False
+        cookie=resp.cookies['session_id']
+        result=resp.json()
+        if not 'result' in result:
+            logging.info('Authentication failed')
+            if 'error' in result:
+                logging.info(pformat(result['error']))
+            return False, False
+        elif not result['result'].get('uid'):
+            logging.info('Authentication failed: no uid in response')
+            return False, False
+        return result,cookie
+
+    def test(self,url):
+        loop=asyncio.get_event_loop()
+        loop.run_until_complete(self.request_odoo(url+'/jsonrpc',{
+            'service':'common',
+            'method':'version',
+            'args':()
+        }))

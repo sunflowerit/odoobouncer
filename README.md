@@ -92,22 +92,31 @@ Now configure NGINX by adding this section:
     location = /web/session/logout {
         proxy_pass http://$authentication_provider_address:$authentication_provider_port/logout;
         proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
     }
 
     location = /web/session/destroy {
         proxy_pass http://$authentication_provider_address:$authentication_provider_port/logout;
         proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
     }
 
     location = /nginx-odoo-auth {
         proxy_pass http://$authentication_provider_address:$authentication_provider_port/auth;
         proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
     }
 
     location = /nginx-odoo-login { return 302 /nginx-odoo-login/; }
     location ~ ^/nginx-odoo-login/(.*)$ {
-        proxy_pass http://$authentication_provider_address:$authentication_provider_port/$1;
+        proxy_pass http://$authentication_provider_address:$authentication_provider_port/$1$is_args$args;
         proxy_redirect off;
         auth_request off;
     }
     # === END: Configuration for nginx-odoo ===
+
+# Authentication
+
+The bouncer can also be used for authentication.
+When logging in on /nginx-odoo-login, add a query string with the key "redirect". The value should be the url to redirect to once the user has logged in.
+When redirecting to the given url, the session_id will be added to the end of the url

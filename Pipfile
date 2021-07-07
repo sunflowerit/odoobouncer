@@ -6,10 +6,12 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-bottle = "*"
 python-dateutil = "*"
 pyotp = "*"
-OdooRPC = "*"
+tornado = "*"
+aiosmtplib = "*"
+httpx = "*"
+async-generator = "*"
 
 [requires]
-python_version = "3.6"
+python_version = "3"
