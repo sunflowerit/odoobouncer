@@ -11,6 +11,7 @@ pyotp = "*"
 tornado = "*"
 aiosmtplib = "*"
 httpx = "*"
+async-generator = "*"
 
 [requires]
 python_version = "3"
