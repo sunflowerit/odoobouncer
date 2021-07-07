@@ -5,6 +5,8 @@ import logging
 import random
 import httpx
 import asyncio
+from pprint import pformat
+
 
 class OdooAuthHandler():
 
@@ -39,7 +41,12 @@ class OdooAuthHandler():
             return False, False
         cookie=resp.cookies['session_id']
         result=resp.json()
-        if not result['result'].get('uid'):
+        if not 'result' in result:
+            logging.info('Authentication failed')
+            if 'error' in result:
+                logging.info(pformat(result['error']))
+            return False, False
+        elif not result['result'].get('uid'):
             logging.info('Authentication failed: no uid in response')
             return False, False
         return result,cookie
