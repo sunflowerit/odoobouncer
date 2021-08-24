@@ -42,8 +42,7 @@ class email:
 			logging.info('Connecting to SMTP server {}:{}...'.format(config.SMTP_SERVER, config.SMTP_PORT))
 			s = await email.connect()
 		except aiosmtplib.SMTPServerDisconnected:
-			logging.info('...timed out. Please check your SMTP settings in .env')
-			sys.exit(1)
+			logging.warning('...timed out. Please check your SMTP settings in .env')
 		await email.login(s)
 		s.close()
 

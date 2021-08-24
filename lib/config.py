@@ -10,6 +10,8 @@ assert sys.version_info.major == 3, 'Requires Python 3.'
 
 logging.basicConfig(level=logging.INFO)
 
+_logger = logging.getLogger(__name__)
+
 # load and check HOTP secret
 HOTP_SECRET = os.environ.get('NGINX_ODOO_HOTP_SECRET')
 hotp_secret_length = len(HOTP_SECRET) if HOTP_SECRET else 0
@@ -67,8 +69,7 @@ try:
 	odoo=OdooAuthHandler()
 	odoo.test(ODOO_URL)
 except Exception:
-	sys.exit('Odoo not running at {}'.format(
-		ODOO_URL))
+  _logger.warning('Odoo not running at {}'.format(ODOO_URL))
 
 auth_params = {
 	'url': ODOO_URL+'/web/session/authenticate',
