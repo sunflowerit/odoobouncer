@@ -8,8 +8,8 @@
 
 ### Prepare project first time
 
-    python3 -m venv .venv
-    pipenv install
+    mkdir .venv
+    pipenv sync
     cp .env-template .env
     vi .env  # edit settings
     python generate-secret-code.py
