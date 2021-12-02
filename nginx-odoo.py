@@ -134,12 +134,12 @@ class LogoutHandler(RequestHandler):
 class AuthenticateHandler(RequestHandler):
     async def post(self):
         params = tornado.escape.json_decode(self.request.body)["params"]
-        database = params["db"] if "db" in params else None
-        username = params["login"] if "login" in params else None
-        password = params["password"] if "password" in params else None
-        hotp_code = params["hotp_code"] if "hotp_code" in params else None
-        hotp_counter = params["hotp_counter"] if "hotp_counter" in params else None
-        hotp_csrf = params["hotp_csrf"] if "hotp_csrf" in params else None
+        database = params.get("db")
+        username = params.get("login")
+        password = params.get("password")
+        hotp_code = params.get("hotp_code")
+        hotp_counter = params.get("hotp_counter")
+        hotp_csrf = params.get("hotp_csrf")
         if not username and not password:
             return self.set_status(400)
         if not (hotp_code and hotp_counter and hotp_csrf):
