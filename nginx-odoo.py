@@ -182,6 +182,36 @@ class AuthenticateHandler(RequestHandler):
             return self.write(data)
 
 
+# Coupa punchout login
+class PunchoutLoginHandler(RequestHandler):
+    async def get(self):
+        token = self.get_argument("token")
+        if not token:
+            return self.set_status(401)
+        handler = OdooAuthHandler()
+        resp, session_id = await handler.punchout_login(token)
+        if not session_id:
+            return self.set_status(401)
+        db.save_session(session_id, config.EXPIRY_INTERVAL)
+        self.set_status(200)
+        self.set_cookie("session_id", session_id)
+        self.finish(resp.text)
+
+# Coupa punchout signup
+class PunchoutSignupHandler(RequestHandler):
+    async def get(self):
+        token = self.get_argument("signup_token")
+        if not token:
+            return self.set_status(401)
+        handler = OdooAuthHandler()
+        resp, session_id = await handler.punchout_signup(token)
+        if not session_id:
+            return self.set_status(401)
+        db.save_session(session_id, config.EXPIRY_INTERVAL)
+        self.set_status(200)
+        self.set_cookie("session_id", session_id)
+        self.finish(resp.text)
+
 app = Application(
     [
         (r"/", LoginHandler),
@@ -189,6 +219,8 @@ app = Application(
         (r"/logout/?", LogoutHandler),
         (r"/static/(.*\.(css|jpg|png))/?", StaticFileHandler, {"path": r"./static"}),
         (r"/web/session/authenticate/?", AuthenticateHandler),
+        (r"/punchouttokenlogin/?", PunchoutLoginHandler),
+        (r"/punchout/signup?", PunchoutSignupHandler),
     ],
     debug=True,
 )

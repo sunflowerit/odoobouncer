@@ -74,6 +74,8 @@ except Exception:
 
 auth_params = {
     "url": ODOO_URL + "/web/session/authenticate",
+    "url_punchout_login": ODOO_URL + "/punchouttokenlogin",
+    "url_punchout_signup": ODOO_URL + "/punchout/signup",
     "database": ODOO_DATABASE,
 }
 OdooAuthHandler.set_params(auth_params)

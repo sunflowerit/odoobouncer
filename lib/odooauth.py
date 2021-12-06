@@ -12,6 +12,8 @@ class OdooAuthHandler:
 
     params = {
         "url": None,
+        "url_punchout_login": None,
+        "url_punchout_signup": None,
         "database": None,
     }
 
@@ -48,6 +50,34 @@ class OdooAuthHandler:
             logging.info("Authentication failed: no uid in response")
             return False, False
         return result, cookie
+
+    async def punchout_login(self, token):
+        url = self.params.get("url_punchout_login")
+        params = {"token": token}
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, params=params)
+            if resp.status_code != 200:
+                logging.info("Authentication failed for punchout login")
+                return False, False
+        if not "session_id" in resp.cookies:
+            logging.info("Session cookie not found for punchout login")
+            return False, False
+        cookie = resp.cookies["session_id"]
+        return resp, cookie
+
+    async def punchout_signup(self, token):
+        url = self.params.get("url_punchout_signup")
+        params = {"signup_token": token}
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, params=params)
+            if resp.status_code != 200:
+                logging.info("Authentication failed for punchout signup")
+                return False, False
+        if not "session_id" in resp.cookies:
+            logging.info("Session cookie not found for punchout signup")
+            return False, False
+        cookie = resp.cookies["session_id"]
+        return resp, cookie
 
     def test(self, url):
         loop = asyncio.get_event_loop()
