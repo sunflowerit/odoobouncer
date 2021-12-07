@@ -64,16 +64,22 @@ class DB(object):
         cur = con.cursor()
         cur.execute(
             """
+            delete from odoo_sessions where session_id = ?
+            """,
+            (session,)
+        )
+        cur.execute(
+            """
             insert into odoo_sessions (session_id, expiry)
             select ?, datetime(datetime(), ?)
-        """,
+            """,
             (session, interval),
         )
         _id = cur.lastrowid
         cur.execute(
             """
             select expiry from odoo_sessions where id = ?
-        """,
+            """,
             (_id,),
         )
         row = cur.fetchone()
