@@ -65,16 +65,36 @@ class OdooAuthHandler:
         cookie = resp.cookies["session_id"]
         return resp, cookie
 
-    async def punchout_signup(self, token):
+    async def punchout_signup(self, token, session_id):
         url = self.params.get("url_punchout_signup")
         params = {"signup_token": token}
+        cookies = {}
+        if session_id:
+            cookies["session_id"] = session_id
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, params=params)
+            resp = await client.get(url, params=params, cookies=cookies)
             if resp.status_code != 200:
                 logging.info("Authentication failed for punchout signup")
                 return False, False
         if not "session_id" in resp.cookies:
             logging.info("Session cookie not found for punchout signup")
+            return False, False
+        session_id = resp.cookies["session_id"]
+        return resp, session_id
+
+    async def punchout_signup_post(self, token, post_params, session_id):
+        url = self.params.get("url_punchout_signup")
+        params = {"signup_token": token}
+        cookies = {}
+        if session_id:
+            cookies["session_id"] = session_id
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, params=params, data=post_params, cookies=cookies)
+            if resp.status_code != 200:
+                logging.info("Authentication failed for punchout signup post")
+                return False, False
+        if not "session_id" in resp.cookies:
+            logging.info("Session cookie not found for punchout signup post")
             return False, False
         cookie = resp.cookies["session_id"]
         return resp, cookie

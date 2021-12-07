@@ -8,7 +8,7 @@
 # with cookie manager, then coming to Odoo login screen and
 # guessing admin password.
 
-from tornado.web import Application, RequestHandler, StaticFileHandler
+from tornado.web import Application, RequestHandler, StaticFileHandler, MissingArgumentError
 import tornado.ioloop
 import tornado.escape
 import asyncio
@@ -194,22 +194,42 @@ class PunchoutLoginHandler(RequestHandler):
             return self.set_status(401)
         db.save_session(session_id, config.EXPIRY_INTERVAL)
         self.set_status(200)
-        self.set_cookie("session_id", session_id)
+        self.set_cookie("session_id", session_id, path="/")
         self.finish(resp.text)
 
 # Coupa punchout signup
 class PunchoutSignupHandler(RequestHandler):
     async def get(self):
+        try:
+            token = self.get_argument("signup_token")
+        except MissingArgumentError:
+            return self.set_status(401)
+        if not token:
+            return self.set_status(401)
+        handler = OdooAuthHandler()
+        # preserve session if we have it
+        session_id = self.get_cookie("session_id")
+        resp, session_id = await handler.punchout_signup(token, session_id)
+        if not session_id:
+            return self.set_status(401)
+        self.set_status(200)
+        self.set_cookie("session_id", session_id, path="/")
+        self.finish(resp.text)
+
+    async def post(self):
         token = self.get_argument("signup_token")
         if not token:
             return self.set_status(401)
         handler = OdooAuthHandler()
-        resp, session_id = await handler.punchout_signup(token)
+        params = {k: self.get_argument(k) for k in self.request.arguments}
+        # preserve session if we have it (to prevent CSRF validation problems)
+        session_id = self.get_cookie("session_id")
+        resp, session_id = await handler.punchout_signup_post(token, params, session_id)
         if not session_id:
             return self.set_status(401)
         db.save_session(session_id, config.EXPIRY_INTERVAL)
         self.set_status(200)
-        self.set_cookie("session_id", session_id)
+        self.set_cookie("session_id", session_id, path="/")
         self.finish(resp.text)
 
 app = Application(
