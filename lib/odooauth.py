@@ -1,10 +1,12 @@
 #!/bin/env python
 # Copyright 2020 Sunflower IT
 
+import asyncio
+import httpx
 import logging
 import random
-import httpx
-import asyncio
+import traceback
+
 from pprint import pformat
 
 
@@ -22,7 +24,7 @@ class OdooAuthHandler:
         cls.params = params
 
     async def request_odoo(self, url, params):
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=20) as client:
             json_payload = {
                 "jsonrpc": "2.0",
                 "method": "call",
@@ -35,7 +37,11 @@ class OdooAuthHandler:
         database = self.params.get("database")
         url = self.params.get("url")
         params = {"db": database, "login": username, "password": password}
-        resp = await self.request_odoo(url, params)
+        try:
+            resp = await self.request_odoo(url, params)
+        except (httpx.ConnectError, httpx.TimeoutException):
+            logging.error(traceback.format_exc())
+            return False, False
         if not "session_id" in resp.cookies:
             logging.info("Authentication failed: session cookie not found")
             return False, False
@@ -54,8 +60,12 @@ class OdooAuthHandler:
     async def punchout_login(self, token):
         url = self.params.get("url_punchout_login")
         params = {"token": token}
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, params=params)
+        async with httpx.AsyncClient(timeout=20) as client:
+            try:
+                resp = await client.get(url, params=params)
+            except (httpx.ConnectError, httpx.TimeoutException):
+                logging.error(traceback.format_exc())
+                return False, False
             if resp.status_code != 200:
                 logging.info("Authentication failed for punchout login")
                 return False, False
@@ -71,10 +81,14 @@ class OdooAuthHandler:
         cookies = {}
         if session_id:
             cookies["session_id"] = session_id
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, params=params, cookies=cookies)
-            if resp.status_code != 200:
-                logging.info("Authentication failed for punchout signup")
+        async with httpx.AsyncClient(timeout=20) as client:
+            try:
+                resp = await client.get(url, params=params, cookies=cookies)
+                if resp.status_code != 200:
+                    logging.info("Authentication failed for punchout signup")
+                    return False, False
+            except (httpx.ConnectError, httpx.TimeoutException):
+                logging.error(traceback.format_exc())
                 return False, False
         if not "session_id" in resp.cookies:
             logging.info("Session cookie not found for punchout signup")
@@ -88,8 +102,12 @@ class OdooAuthHandler:
         cookies = {}
         if session_id:
             cookies["session_id"] = session_id
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(url, params=params, data=post_params, cookies=cookies)
+        async with httpx.AsyncClient(timeout=20) as client:
+            try:
+                resp = await client.post(url, params=params, data=post_params, cookies=cookies)
+            except (httpx.ConnectError, httpx.TimeoutException):
+                logging.error(traceback.format_exc())
+                return False, False
             if resp.status_code != 200:
                 logging.info("Authentication failed for punchout signup post")
                 return False, False
