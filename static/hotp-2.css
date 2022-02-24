@@ -1,0 +1,18 @@
+html {
+    /*background: linear-gradient( 90deg, #d2d5d487, #8c929391, #aeb4b58f, #9b97989e, #7e7b7ba1, #a59e9e9e, #938d8ac4, #c7c5c3bf );*/
+    /*background: linear-gradient( 90deg, #005c4f87, #005c6091, #0181878f, #ac255e9e, #ca485ca1, #e16b5c9e, #f39060c4, #ffb56bbf );*/
+}
+
+.container {
+    margin-top: 200px;
+    padding: 50px;
+}
+
+.factor-auth-input {
+    position: relative;
+    overflow: hidden;
+    margin: 0px;    
+    color: #333;
+    background-color: #fff;
+    border-color: #ccc;    
+}

@@ -20,6 +20,8 @@ import lib.config as config
 
 db = config.db
 OdooAuthHandler = config.OdooAuthHandler
+login_page = config.DEFAULT_LOGIN or r"./templates/login-2.html"
+hotp_page = config.DEFAULT_HOTP or r"./templates/hotp-2.html"
 
 from lib.email import email
 
@@ -37,7 +39,7 @@ class LoginHandler(RequestHandler):
                 if not redirect_url.endswith("/"):
                     redirect_url += "/"
                 return self.redirect(f"{redirect_url}auth/{session_id}")
-        self.render(r"./templates/login.html", **config.theme_params)
+        self.render(login_page, **config.theme_params)
 
     async def post(self):
         # handle username/password
@@ -60,12 +62,12 @@ class LoginHandler(RequestHandler):
                         message = "Mail with security code not sent."
                         logging.error(message)
                         return self.render(
-                            r"./templates/login.html",
+                            login_page,
                             **config.theme_params,
                             error=message,
                         )
                 return self.render(
-                    r"./templates/hotp.html",
+                    config.DEFAULT_HOTP,
                     **config.theme_params,
                     counter=counter,
                     code=code,
@@ -76,7 +78,7 @@ class LoginHandler(RequestHandler):
                 message = "Invalid username or password."
                 logging.info(message)
                 return self.render(
-                    r"./templates/login.html", **config.theme_params, error=message
+                    login_page, **config.theme_params, error=message
                 )
 
         # check HOTP
@@ -88,13 +90,13 @@ class LoginHandler(RequestHandler):
             if not hotp.verify(hotp_code, int(counter)):
                 message = "Invalid security code."
                 return self.render(
-                    r"./templates/login.html", **config.theme_params, error=message
+                    login_page, **config.theme_params, error=message
                 )
             session_id = db.verify_code_and_expiry(counter, code)
             if not session_id:
                 message = "Invalid security code (2)."
                 return self.render(
-                    r"./templates/login.html", **config.theme_params, error=message
+                    login_page, **config.theme_params, error=message
                 )
             db.save_session(session_id, config.EXPIRY_INTERVAL)
             logging.info("Setting session cookie: %s", session_id)
@@ -245,7 +247,15 @@ app = Application(
     debug=True,
 )
 
+# Use this after setup instructions if purpose is just testing tornado server
+def main():
+    # Create an HTTP server listening on localhost, port 8080.
+    http_server = tornado.httpserver.HTTPServer(app)
+    http_server.listen(8080, address='127.0.0.1')
+    tornado.ioloop.IOLoop.current().start()
+
 if __name__ == "__main__":
+    # main()
     # Check connection with email service
     loop = asyncio.get_event_loop()
     loop.run_until_complete(email.test())
