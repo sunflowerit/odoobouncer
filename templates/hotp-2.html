@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link href="//netdna.bootstrapcdn.com/bootstrap/3.1.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+		<script src="//netdna.bootstrapcdn.com/bootstrap/3.1.0/js/bootstrap.min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+		{% if 'branding' in vars() %}
+			<style>
+				html {
+				background-color: {{ backgroundcolor }};
+				}
+				.login form button {
+				background: {{ buttoncolor }};
+				border-bottom-color: {{ buttonshadowcolor }};
+				}
+				.login form button:hover {
+				background: {{ buttonhovercolor }};
+				-webkit-transition: background-color 200ms ease-in;
+				-ms-transition: background-color 200ms ease-in;
+				transition: background-color 200ms ease-in;
+				}
+			</style>
+			<title>{{ branding }} Login</title>
+		{% else %}
+			<link type="text/css" href="../static/hotp-2.css" rel="stylesheet">
+			<title>Login</title>
+		{% end %}
+	</head>
+	<body>
+		<form method="post">
+			<input type="hidden" name="counter" value="{{ counter }}">
+			<input type="hidden" name="code" value="{{ code }}">
+			<div class="container">
+				<div class="row">
+					<div class="col-xs-12 col-md-6 col-md-offset-3 col-sm-8 col-sm-offset-2">
+						<div class="panel panel-primary">
+							<div class="panel-heading">
+								<h2 class="panel-title text-center">Enter six-digit security code, sent to you by email</h2>
+							</div>
+							<div class="panel-body">
+								<div class="input-group image-preview">
+									<input name="hotp_code" type="text" class="form-control" placeholder="Security code">
+									<span class="input-group-btn">
+										<div class="btn btn-success factor-auth-input" data-toggle="tooltip" data-placement="bottom" title="Submit security code" type="submit">
+											<span class="glyphicon glyphicon-log-in"></span>
+										</div>
+									</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</form>
+	</body>
+</html>

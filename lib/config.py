@@ -88,6 +88,8 @@ BACKGROUNDCOLOR = os.environ.get("NGINX_ODOO_BACKGROUND_COLOR", "")
 BUTTONCOLOR = os.environ.get("NGINX_ODOO_BUTTON_COLOR", "")
 BUTTONHOVERCOLOR = os.environ.get("NGINX_ODOO_BUTTON_HOVER_COLOR", "")
 BUTTONSHADOWCOLOR = os.environ.get("NGINX_ODOO_BUTTON_SHADOW_COLOR", "")
+DEFAULT_LOGIN = os.environ.get("NGINX_ODOO_DEFAULT_LOGIN", r"./templates/login-2.html")
+DEFAULT_HOTP = os.environ.get("NGINX_ODOO_DEFAULT_HOTP", r"./templates/hotp-2.html")
 
 theme_params = {
     "backgroundcolor": BACKGROUNDCOLOR,
