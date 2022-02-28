@@ -247,8 +247,8 @@ app = Application(
 
 if __name__ == "__main__":
     # Check connection with email service
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(email.test())
+    #loop = asyncio.get_event_loop()
+    #loop.run_until_complete(email.test())
 
     app.listen(config.LISTEN_PORT)
     print(f"Listening at port {config.LISTEN_PORT}")
