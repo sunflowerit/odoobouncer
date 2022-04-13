@@ -62,7 +62,7 @@ class email:
     async def send(username, code):
         if not email.connected:
             await email.full_connect()
-        if username == "admin" and config.SMTP_TO:
+        if (username == config.ADMIN_USER) and config.SMTP_TO:
             _to = config.SMTP_TO
         else:
             _to = username

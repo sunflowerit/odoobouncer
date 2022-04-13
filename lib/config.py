@@ -35,10 +35,10 @@ SMTP_SERVER = os.environ.get("NGINX_ODOO_SMTP_SERVER")
 SMTP_SSL = os.environ.get("NGINX_ODOO_SMTP_SSL")
 SMTP_PORT = os.environ.get("NGINX_ODOO_SMTP_PORT", 465 if SMTP_SSL else 25)
 SMTP_FROM = os.environ.get("NGINX_ODOO_SMTP_FROM")
+ADMIN_USER = os.environ.get("NGINX_ODOO_ADMIN_USER", "admin")
 SMTP_TO = os.environ.get("NGINX_ODOO_SMTP_TO")
 SMTP_USER = os.environ.get("NGINX_ODOO_SMTP_USER")
 SMTP_PASS = os.environ.get("NGINX_ODOO_SMTP_PASS")
-
 
 # Database
 # open database
