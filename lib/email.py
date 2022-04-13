@@ -6,6 +6,9 @@ import re
 from email.mime.text import MIMEText
 
 
+EMAIL_TIMEOUT = 20
+
+
 class email:
     connected = False
     email_regex = re.compile(r"^[A-Za-z0-9\.\+_-]+@[A-Za-z0-9\._-]+\.[a-zA-Z]*$")
@@ -13,18 +16,18 @@ class email:
     async def connect():
         if config.SMTP_SSL:
             s = aiosmtplib.SMTP(
-                config.SMTP_SERVER, config.SMTP_PORT, timeout=5, use_tls=True
+                config.SMTP_SERVER, config.SMTP_PORT, timeout=EMAIL_TIMEOUT, use_tls=True
             )
         else:
             s = aiosmtplib.SMTP(
-                config.SMTP_SERVER, config.SMTP_PORT, timeout=5, use_tls=False
+                config.SMTP_SERVER, config.SMTP_PORT, timeout=EMAIL_TIMEOUT, use_tls=False
             )
         await s.connect()
         return s
 
     async def login(s):
         if config.SMTP_USER:
-            await s.login(config.SMTP_USER, config.SMTP_PASS)
+            await s.login(config.SMTP_USER, config.SMTP_PASS, timeout=EMAIL_TIMEOUT)
         return
 
     async def full_connect():
@@ -87,12 +90,12 @@ class email:
             try:
                 s = await email.connect()
                 await email.login(s)
-                await s.sendmail(config.SMTP_FROM, _to_list, msg.as_string())
+                await s.sendmail(config.SMTP_FROM, _to_list, msg.as_string(), timeout=EMAIL_TIMEOUT)
                 await s.quit()
                 s.close()
                 success = True
                 break
-            except aiosmtplib.SMTPServerDisconnected:
+            except (aiosmtplib.SMTPServerDisconnected, aiosmtplib.errors.SMTPReadTimeoutError):
                 retries -= 1
         if not success:
             logging.error("SMTP failed after three retries")
