@@ -1,1 +1,1 @@
-pipenv run python nginx-odoo.py
+.venv/bin/python nginx-odoo.py

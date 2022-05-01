@@ -2,14 +2,9 @@
 
 ## Installation
 
-### Install `pipenv`
-
-    sudo pip install pipenv
-
 ### Prepare project first time
 
-    mkdir .venv
-    pipenv sync
+    ./bootstrap
     cp .env-template .env
     vi .env  # edit settings
     python generate-secret-code.py
@@ -17,27 +12,26 @@
 
 ## Usage in debug mode
 
-    pipenv run python nginx-odoo.py
+    ./run
 
 ## Usage in production
 
-Install UWSGI:
+Use a service file such as:
 
-    sudo apt install uwsgi uwsgi-plugin-python3
+    [Unit]
+    Description=bouncer-odoo
+    After=network.target
 
-Now create a new UWSGI config file:
+    [Service]
+    Type=simple
+    User=ubuntu
+    WorkingDirectory=/home/ubuntu/bouncer-odoo
+    ExecStartPre=/bin/sleep 5
+    ExecStart=/home/ubuntu/bouncer-odoo/.venv/bin/python /home/ubuntu/bouncer-odoo/nginx-odoo.py
+    KillMode=mixed
 
-    [uwsgi]
-    for-readline = /home/ubuntu/nginx-odoo/.env
-      env = %(_)
-    plugins = python3
-    virtualenv = /home/ubuntu/nginx-odoo/.venv
-    http-socket = :8888
-    chdir = /home/ubuntu/nginx-odoo
-    master = true
-    file = nginx-odoo.py
-    uid = ubuntu
-    gid = ubuntu
+    [Install]
+    WantedBy=multi-user.target
 
 Now configure NGINX by adding this section:
 
@@ -119,4 +113,4 @@ Now configure NGINX by adding this section:
 
 The bouncer can also be used for authentication.
 When logging in on /nginx-odoo-login, add a query string with the key "redirect". The value should be the url to redirect to once the user has logged in.
-When redirecting to the given url, the session_id will be added to the end of the url
+When redirecting to the given url, the `session_id` will be added to the end of the url
