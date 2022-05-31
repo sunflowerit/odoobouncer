@@ -8,12 +8,44 @@ from lib.odooauth import OdooAuthHandler
 
 assert sys.version_info.major == 3, "Requires Python 3."
 
+
+import os
+import sys
+from dotenv import load_dotenv
+
+
+SCRIPT_PATH = os.path.abspath(os.path.dirname(__file__))
+os.environ['BOUNCER_WORK_DIR'] = os.path.realpath(os.path.join(SCRIPT_PATH, ".."))
+load_dotenv(os.path.join(os.environ["BOUNCER_WORK_DIR"], ".env"), override=True)
+
+BOUNCER_ADMIN_USER_ODOO = os.environ["BOUNCER_ADMIN_USER_ODOO"]
+BOUNCER_BACKGROUND_COLOR_ODOO = os.environ["BOUNCER_BACKGROUND_COLOR_ODOO"]
+BOUNCER_BRANDING_ODOO = os.environ["BOUNCER_BRANDING_ODOO"]
+BOUNCER_BUTTON_COLOR_ODOO = os.environ["BOUNCER_BUTTON_COLOR_ODOO"]
+BOUNCER_BUTTON_HOVER_COLOR_ODOO = os.environ["BOUNCER_BUTTON_HOVER_COLOR_ODOO"]
+BOUNCER_BUTTON_SHADOW_COLOR_ODOO = os.environ["BOUNCER_BUTTON_SHADOW_COLOR_ODOO"]
+BOUNCER_DISABLE_EMAIL_ODOO = os.environ["BOUNCER_DISABLE_EMAIL_ODOO"]
+BOUNCER_EXPIRY_INTERVAL_ODOO = os.environ["BOUNCER_EXPIRY_INTERVAL_ODOO"]
+BOUNCER_HOTP_SECRET_ODOO = os.environ["BOUNCER_HOTP_SECRET_ODOO"]
+BOUNCER_LISTEN_HOST_ODOO = os.environ["BOUNCER_LISTEN_HOST_ODOO"]
+BOUNCER_LISTEN_PORT_ODOO = os.environ["BOUNCER_LISTEN_PORT_ODOO"]
+BOUNCER_ODOO_DATABASE_ODOO = os.environ["BOUNCER_ODOO_DATABASE_ODOO"]
+BOUNCER_ODOO_URL_ODOO = os.environ["BOUNCER_ODOO_URL_ODOO"]
+BOUNCER_SMTP_FROM_ODOO = os.environ["BOUNCER_SMTP_FROM_ODOO"]
+BOUNCER_SMTP_PASS_ODOO = os.environ["BOUNCER_SMTP_PASS_ODOO"]
+BOUNCER_SMTP_PORT_ODOO = os.environ["BOUNCER_SMTP_PORT_ODOO"]
+BOUNCER_SMTP_SERVER_ODOO = os.environ["BOUNCER_SMTP_SERVER_ODOO"]
+BOUNCER_SMTP_SSL_ODOO = os.environ["BOUNCER_SMTP_SSL_ODOO"]
+BOUNCER_SMTP_TO_ODOO = os.environ["BOUNCER_SMTP_TO_ODOO"]
+BOUNCER_SMTP_USER_ODOO = os.environ["BOUNCER_SMTP_USER_ODOO"]
+
+
 logging.basicConfig(level=logging.INFO)
 
 _logger = logging.getLogger(__name__)
 
 # load and check HOTP secret
-HOTP_SECRET = os.environ.get("NGINX_ODOO_HOTP_SECRET")
+HOTP_SECRET = os.environ.get("BOUNCER_HOTP_SECRET_ODOO")
 hotp_secret_length = len(HOTP_SECRET) if HOTP_SECRET else 0
 if hotp_secret_length != 32:
     sys.exit(
@@ -22,23 +54,23 @@ if hotp_secret_length != 32:
 
 # load and check listen settings
 # (when running as a developer, from command line instead of with uwsgi)
-LISTEN_PORT = os.environ.get("NGINX_ODOO_LISTEN_PORT", 8888)
-LISTEN_HOST = os.environ.get("NGINX_ODOO_LISTEN_HOST", "localhost")
+LISTEN_PORT = os.environ.get("BOUNCER_LISTEN_PORT_ODOO", 8888)
+LISTEN_HOST = os.environ.get("BOUNCER_LISTEN_HOST_ODOO", "localhost")
 
 # other settings
-EXPIRY_INTERVAL = os.environ.get("NGINX_ODOO_EXPIRY_INTERVAL", "+16 hours")
+EXPIRY_INTERVAL = os.environ.get("BOUNCER_EXPIRY_INTERVAL_ODOO", "+16 hours")
 
 
 # Email
 # load and check email settings
-SMTP_SERVER = os.environ.get("NGINX_ODOO_SMTP_SERVER")
-SMTP_SSL = os.environ.get("NGINX_ODOO_SMTP_SSL")
-SMTP_PORT = os.environ.get("NGINX_ODOO_SMTP_PORT", 465 if SMTP_SSL else 25)
-SMTP_FROM = os.environ.get("NGINX_ODOO_SMTP_FROM")
-ADMIN_USER = os.environ.get("NGINX_ODOO_ADMIN_USER", "admin")
-SMTP_TO = os.environ.get("NGINX_ODOO_SMTP_TO")
-SMTP_USER = os.environ.get("NGINX_ODOO_SMTP_USER")
-SMTP_PASS = os.environ.get("NGINX_ODOO_SMTP_PASS")
+SMTP_SERVER = os.environ.get("BOUNCER_SMTP_SERVER_ODOO")
+SMTP_SSL = os.environ.get("BOUNCER_SMTP_SSL_ODOO")
+SMTP_PORT = os.environ.get("BOUNCER_SMTP_PORT_ODOO", 465 if SMTP_SSL else 25)
+SMTP_FROM = os.environ.get("BOUNCER_SMTP_FROM_ODOO")
+ADMIN_USER = os.environ.get("BOUNCER_ADMIN_USER_ODOO", "admin")
+SMTP_TO = os.environ.get("BOUNCER_SMTP_TO_ODOO")
+SMTP_USER = os.environ.get("BOUNCER_SMTP_USER_ODOO")
+SMTP_PASS = os.environ.get("BOUNCER_SMTP_PASS_ODOO")
 
 # Database
 # open database
@@ -58,10 +90,10 @@ db.cleanup()
 
 # Odoo
 # check Odoo settings
-ODOO_URL = os.environ.get("NGINX_ODOO_ODOO_URL", "http://localhost:8069")
+ODOO_URL = os.environ.get("BOUNCER_ODOO_URL_ODOO", "http://localhost:8069")
 if ODOO_URL.endswith("/"):
     ODOO_URL = ODOO_URL[:-1]
-ODOO_DATABASE = os.environ.get("NGINX_ODOO_ODOO_DATABASE")
+ODOO_DATABASE = os.environ.get("BOUNCER_ODOO_DATABASE_ODOO")
 if not ODOO_DATABASE:
     sys.exit("Odoo settings not set in .env")
 
@@ -83,11 +115,11 @@ OdooAuthHandler.set_params(auth_params)
 
 # Branding
 # load and check branding settings
-BRANDING = os.environ.get("NGINX_ODOO_BRANDING", "")
-BACKGROUNDCOLOR = os.environ.get("NGINX_ODOO_BACKGROUND_COLOR", "")
-BUTTONCOLOR = os.environ.get("NGINX_ODOO_BUTTON_COLOR", "")
-BUTTONHOVERCOLOR = os.environ.get("NGINX_ODOO_BUTTON_HOVER_COLOR", "")
-BUTTONSHADOWCOLOR = os.environ.get("NGINX_ODOO_BUTTON_SHADOW_COLOR", "")
+BRANDING = os.environ.get("BOUNCER_BRANDING_ODOO", "")
+BACKGROUNDCOLOR = os.environ.get("BOUNCER_BACKGROUND_COLOR_ODOO", "")
+BUTTONCOLOR = os.environ.get("BOUNCER_BUTTON_COLOR_ODOO", "")
+BUTTONHOVERCOLOR = os.environ.get("BOUNCER_BUTTON_HOVER_COLOR_ODOO", "")
+BUTTONSHADOWCOLOR = os.environ.get("BOUNCER_BUTTON_SHADOW_COLOR_ODOO", "")
 
 theme_params = {
     "backgroundcolor": BACKGROUNDCOLOR,
@@ -98,4 +130,4 @@ theme_params = {
 }
 
 # Debug
-disable_email = os.environ.get("NGINX_ODOO_DISABLE_EMAIL", "false").lower() == "true"
+disable_email = os.environ.get("BOUNCER_DISABLE_EMAIL_ODOO", "false").lower() == "true"
