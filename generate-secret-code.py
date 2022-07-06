@@ -4,5 +4,5 @@ import pyotp
 
 print(
     "Copypaste this line into .env:\n"
-    "NGINX_ODOO_HOTP_SECRET={}".format(pyotp.random_base32()),
+    "BOUNCER_HOTP_SECRET_ODOO={}".format(pyotp.random_base32()),
 )
